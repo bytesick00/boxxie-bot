@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express from "express";
+
+import process from 'node:process';
 import {
   ButtonStyleTypes,
   InteractionResponseFlags,
@@ -8,8 +10,9 @@ import {
   MessageComponentTypes,
   verifyKeyMiddleware,
 } from "discord-interactions";
-import { getRandomEmoji, DiscordRequest } from "./utils.js";
+import { getRandomEmoji, DiscordRequest } from "../utils.js";
 import { getShuffledOptions, getResult } from "./game.js";
+import { initializeData } from "../sheets.js";
 
 // Create an express app
 const app = express();
@@ -17,6 +20,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 // To keep track of our active games
 const activeGames = {};
+
+await initializeData();
 
 /**
  * Interactions endpoint URL where Discord will send HTTP requests
@@ -55,6 +60,24 @@ app.post(
                 type: MessageComponentTypes.TEXT_DISPLAY,
                 // Fetches a random emoji to send from a helper function
                 content: `hello world ${getRandomEmoji()}`,
+              },
+            ],
+          },
+        });
+      }
+
+      // "info" command
+      if (name === "info") {
+        // Send a message into the channel where command was triggered from
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.IS_COMPONENTS_V2,
+            components: [
+              {
+                type: MessageComponentTypes.TEXT_DISPLAY,
+                // fetches info
+                content: ``,
               },
             ],
           },
