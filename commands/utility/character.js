@@ -135,12 +135,17 @@ export default{
     async execute(interaction) {
         const characterChoice = interaction.options.getString("oc");
         console.log(characterChoice);
-        const characterInfo = getCharacter(characterChoice, allCharacters);
-        // console.log(characterInfo.currentStats)
-        await interaction.reply(
-            
-            {embeds: [createProfileEmbed(characterInfo)]}
-        );
+
+        try{
+            const characterInfo = getCharacter(characterChoice, allCharacters);
+            // console.log(characterInfo.currentStats)
+            await interaction.reply(
+                {embeds: [createProfileEmbed(characterInfo)]}
+            );
+        }
+        catch{
+            await interaction.reply(`I couldn't find an OC named ${characterChoice} :( Please use the autocomplete to select your OC.`)
+        }
     },
     async autocomplete(interaction) {
 		const focusedValue = interaction.options.getFocused();
