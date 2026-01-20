@@ -1,8 +1,8 @@
 import 'discord.js'
 import { Client, Collection, Events, GatewayIntentBits, MessageFlags } from 'discord.js'
 import 'dotenv/config';
-import { initializeTables } from './utility/dataFunctions.js';
-import { dynamicImport, dynamicImportEvents } from './utility/dynamic-import.js';
+import { initializeTables, initializeOCs, getTable } from './utility/dataFunctions.js';
+import { dynamicImport, dynamicImportEvents } from './dynamic-import.js';
 
 const client = new Client({
   intents: [

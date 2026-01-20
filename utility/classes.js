@@ -1,4 +1,4 @@
-import { pullInfo, appendToRange, updateRange, rowValueR1C1ToA1} from "./sheets.js";
+import { pullInfo, appendToRange, updateRange, rowValueR1C1ToA1} from "../sheets.js";
 
 export class Table {
   constructor(name, sheetName, rangeA1){
@@ -135,16 +135,25 @@ export class Character{
     this.photoLink = photoLink;
   }
 
-  setBaseStats(baseStatsRow){
-    this.baseStats = new Stats(baseStatsRow);
+  setBaseStats(baseStatsTable){
+    const stats = baseStatsTable.getRow(this.name, 'Name');
+    this.baseStats = new Stats(stats, 'base');
+  }
+
+  refreshCurrentStats(currentStatsTable){
+    const stats = currentStatsTable.getRow(this.name, 'Name');
+    this.currentStats = new Stats(stats, 'current');
   }
 
   resetCurrentStats(){
-    this.currentStats = new Stats(this.baseStats.getValues());
+    this.currentStats = new Stats(this.baseStats.getValues(), 'current');
   }
-
-  reprintCharacter(){
+  
+  reprintCharacter(currentStatsTable){
+    const currentReprints = this.currentStats.reprints;
     this.resetCurrentStats();
+    this.currentStats.updateStat('reprints', currentReprints+1, currentStatsTable);
+
     //gives randomized 5% error
     let errorChance = Math.random() <= 0.05;
     return errorChance;
@@ -166,30 +175,37 @@ export class Mun{
 }
 
 class Stats{
-  constructor([name, wit, chr, str, mve, dur, lck]){
+  constructor([ocName, wit, cha, str, mve, dur, lck, reprints = '0'], type){
     this.wit = wit;
-    this.chr = chr;
+    this.cha = cha;
     this.str = str;
     this.mve = mve;
     this.dur = dur;
     this.lck = lck;
+    this.type = type;
+    this.ocName = ocName;
+    this.reprints = reprints;
   }
 
-  updateStat(stat, value){
+  updateStat(stat, value, statsTable){
+    if(this.type === "base") return;
     this[stat] = value;
+
+    statsTable.updateValue(this.ocName, 'Name', stat, this[stat]);
   }
 
-  addToStat(stat, addValue){
+  addToStat(stat, addValue, statsTable){
+    if(this.type === "base") return;
+
     this[stat] = this[stat] + addValue;
+
+    this.updateStat(stat, this[stat], statsTable);
   }
 
   getValues(){
-    return ["", this.wit, this.chr, this.str, this.mve, this.dur, this.lck];
+    return [this.ocName, this.wit, this.cha, this.str, this.mve, this.dur, this.lck, this.reprints];
   }
 
-  getValue(stat){
-    return this[stat]
-  }
 }
 
 class Item{

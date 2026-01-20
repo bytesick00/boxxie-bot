@@ -1,5 +1,5 @@
-import { Table } from "./classes.js";
-import { TABLE_RANGES } from "./sheets.js";
+import { Table, Character } from "./classes.js";
+import { TABLE_RANGES } from "../sheets.js";
 
 export async function initializeTables(){
   const tableInfo = [
@@ -41,46 +41,34 @@ export async function initializeTables(){
   return dataTables;
 }
 
-export async function initializeData(){
-  await initializeTables();
+export function getTable(tableName, dataTables){
+  return dataTables.find((table)=>{
+    if(table.name === tableName){
+      return table;
+    }
+  });
 }
 
-export function initializeOCs(){
-  let firstRow = true;
-  ocInfoTable.forEach((row)=>{
-    if(firstRow){
-      firstRow = false;
-    }
-    else{
-      let thisOC = new Character(row);
-      allCharacters.push(thisOC);
-    }
+export function initializeOCs(ocInfoTable, baseStatsTable, currentStatsTable){
+  let allCharacters = [];
+
+  ocInfoTable.rowValues.forEach((row)=>{
+    let thisOC = new Character(row);
+    allCharacters.push(thisOC);
   })
 
   allCharacters.forEach((OC)=>{
-    let baseStats = filterTable(baseStatsTable, 0, OC.name);
-    OC.setBaseStats(baseStats);
+    OC.setBaseStats(baseStatsTable, 'base');
+    OC.refreshCurrentStats(currentStatsTable);
   })
+
+  return allCharacters;
 }
 
-export function getOC(name){
-  let char;
-  allCharacters.forEach((OC)=>{
-    if(OC.name == name){
-      char = OC;
+export function getCharacter(name, allCharacters){
+  return allCharacters.find((OC)=>{
+    if(OC.name.toLowerCase() === name.toLowerCase()){
+      return OC;
     }
-  })
-  return char;
+  });
 }
-
-// export async function initializeData(){
-//   try {
-//     await getStaticData();
-//     initializeOCs();
-//     return true;
-//   } catch (error) {
-//     console.debug(error);
-//     return false;
-//   }
-
-// }

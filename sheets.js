@@ -1,14 +1,14 @@
 import {google} from 'googleapis';
 import path from 'node:path';
 // import {authenticate} from '@google-cloud/local-auth';
-import { numToLetter } from './utils.js';
+import { numToLetter } from './utility/utils.js';
 
 const SPREADSHEET_ID = '13KW7JJNn-7TsoFZhYtmpQe3EO7ldlNr-iZVZNfThrvk';
 // The scope for reading spreadsheets.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 // The path to the credentials file.
 // const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
-const CREDENTIALS_PATH = path.join(process.cwd(), 'serviceCreds.json');
+const CREDENTIALS_PATH = path.join(process.cwd(), './serviceCreds.json');
 
 const auth = new google.auth.GoogleAuth({
       scopes: SCOPES,

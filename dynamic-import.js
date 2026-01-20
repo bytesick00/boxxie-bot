@@ -1,5 +1,5 @@
 import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 export function dynamicImport(modulesFolderName, relativeFilePath){
     const promises = [];
@@ -13,8 +13,8 @@ export function dynamicImport(modulesFolderName, relativeFilePath){
                 // Grab all the module files from the modules directory you created earlier
                 const modulesPath = join(foldersPath, folder);
                 const moduleFiles = readdirSync(modulesPath).filter((file) => file.endsWith('.js'));
-                // console.log(moduleFiles);
                 for (const file of moduleFiles) {
+                    // console.log(file)
                     const filePath = `${relativeFilePath}/${file}`;
                         promises.push(
                             // NOTE: import() is async; that is why this is promisified
@@ -34,7 +34,7 @@ export function dynamicImport(modulesFolderName, relativeFilePath){
                     // I cherry-pick just the default exports, but other exports will be
                     // on this object
                     if (value.default) {
-                        console.log(`Importing module: ${value.default.data.name}`)
+                        //console.log(`Importing module: ${value.default.data.name}`)
                         modules.push(value.default);
                     }
                 }
