@@ -1,0 +1,37 @@
+import { AnomalyBoxData } from './utility/classes.js';
+
+const SHEET_RANGES = [
+        {
+            sheet: "Mun Info",
+            range: "A:G"
+        },
+        {
+            sheet: "OC Info",
+            range: "A:J"
+        },
+        {
+            sheet: "Base Stats",
+            range: "A:G"
+        },
+        {
+            sheet: "All Items",
+            range: "A:H"
+        },
+        {
+            sheet: "Current Stats",
+            range: "A:H"
+        },
+        {   sheet: "Inventory Rows",
+            range: "A:D"
+        },
+        {
+            sheet: "Mechanics",
+            range: "A:C",
+        },
+        {
+            sheet: "Flavor Text",
+            range: "A:B"
+        }
+]
+
+export const AB_DATA = await AnomalyBoxData.init(SHEET_RANGES);

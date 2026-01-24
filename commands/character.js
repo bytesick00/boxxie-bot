@@ -1,24 +1,14 @@
 import { SlashCommandBuilder, EmbedBuilder, Embed } from 'discord.js';
-import {initializeTables, initializeOCs, getTable, getCharacter} from '../../utility/dataFunctions.js'
-import { Character } from '../../utility/classes.js';
+// import {initializeTables, initializeOCs, getTable, getCharacter} from '../utility/dataFunctions.js'
+import { AnomalyBoxData } from '../utility/classes.js';
+import { AB_DATA } from '../initialize-data.js';
 
-let allCharacters;
-const choices = await initializeTables().then(dataTables=>{
-            allCharacters = initializeOCs(getTable("OC Info", dataTables), getTable("Base Stats", dataTables), getTable("Current Stats", dataTables));
-            return allCharacters.map(OC => (OC.name)
-            );
-        });
-
-const data = new SlashCommandBuilder()
-    .setName('character')
-    .setDescription('Get a character\'s information.') 
-    .addStringOption((option)=>
-        option 
-            .setName('oc')
-            .setDescription('OC name (shows top 25 matching names)')
-            .setRequired(true)
-            .setAutocomplete(true)
-    );
+/**
+ * Description placeholder
+ *
+ * @type {AnomalyBoxData}
+ */
+let choices = AB_DATA.allOCNames;
 
 function createProfileEmbed(OC = new Character()){
     const embedMessage = new EmbedBuilder()
@@ -65,7 +55,7 @@ function createProfileEmbed(OC = new Character()){
         },
         {
             name: "",
-            value: "**```\n🎲 STATS\n```**",
+            value: "**```\n🎲 CURRENT STATS\n```**",
             inline: false
         },
         {
@@ -129,15 +119,25 @@ function createProfileEmbed(OC = new Character()){
     return embedMessage;
 }
 
+const data = new SlashCommandBuilder() 
+    .setName('character')
+    .setDescription('Get a character\'s information.') 
+    .addStringOption((option)=>
+        option 
+            .setName('oc')
+            .setDescription('OC name (shows top 25 matching names)')
+            .setRequired(true)
+            .setAutocomplete(true)
+    );
 
 export default{
     data: data,
     async execute(interaction) {
         const characterChoice = interaction.options.getString("oc");
-        console.log(characterChoice);
+        // console.log(characterChoice);
 
         try{
-            const characterInfo = getCharacter(characterChoice, allCharacters);
+            const characterInfo = AB_DATA.getOC(characterChoice, true);
             // console.log(characterInfo.currentStats)
             await interaction.reply(
                 {embeds: [createProfileEmbed(characterInfo)]}
