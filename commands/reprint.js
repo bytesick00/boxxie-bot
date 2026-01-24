@@ -119,7 +119,7 @@ async function reprintMessage(interaction){
 }
 
 const data = new SlashCommandBuilder() 
-    .setName('dev_reprint')
+    .setName('reprint')
     .setDescription('Reprints your character') 
     .addStringOption((option)=>
         option 
