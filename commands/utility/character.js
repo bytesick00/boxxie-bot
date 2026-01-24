@@ -9,7 +9,7 @@ const choices = await initializeTables().then(dataTables=>{
             );
         });
 
-const data = new SlashCommandBuilder()
+const data = new SlashCommandBuilder() 
     .setName('character')
     .setDescription('Get a character\'s information.') 
     .addStringOption((option)=>
