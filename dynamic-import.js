@@ -45,7 +45,7 @@ import { join, relative } from 'node:path';
 //     });
 // }
 
-export function dynamicImportEvents(relativeFilePath){
+export function dynamicImport(relativeFilePath){
     const promises = [];
     const events = [];
     return new Promise((resolve, reject)=>{

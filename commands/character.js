@@ -1,15 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder, Embed } from 'discord.js';
 // import {initializeTables, initializeOCs, getTable, getCharacter} from '../utility/dataFunctions.js'
 import { AnomalyBoxData } from '../utility/classes.js';
-import { AB_DATA } from '../index.js';
-
-// let allCharacters;
-// const choices = await initializeTables().then(dataTables=>{
-//             allCharacters = initializeOCs(getTable("OC Info", dataTables), getTable("Base Stats", dataTables), getTable("Current Stats", dataTables));
-//             return allCharacters.map(OC => (OC.name)
-//             );
-//         });
-
+import { AB_DATA } from '../initialize-data.js';
 
 /**
  * Description placeholder
@@ -18,18 +10,7 @@ import { AB_DATA } from '../index.js';
  */
 let choices = AB_DATA.allOCNames;
 
-const data = new SlashCommandBuilder() 
-    .setName('character')
-    .setDescription('Get a character\'s information.') 
-    .addStringOption((option)=>
-        option 
-            .setName('oc')
-            .setDescription('OC name (shows top 25 matching names)')
-            .setRequired(true)
-            .setAutocomplete(true)
-    );
-
-function createProfileEmbed(OC){
+function createProfileEmbed(OC = new Character()){
     const embedMessage = new EmbedBuilder()
         .setAuthor({
         name: "New Millennium Technologies",
@@ -79,32 +60,32 @@ function createProfileEmbed(OC){
         },
         {
             name: "`WIT:`",
-            value: OC.wit,
+            value: OC.baseStats.wit,
             inline: true
         },
         {
             name: "`CHR:`",
-            value: OC.cha,
+            value: OC.currentStats.cha,
             inline: true
         },
         {
             name: "`STR:`",
-            value: OC.str,
+            value: OC.currentStats.str,
             inline: true
         },
         {
             name: "`MVE:`",
-            value: OC.mve,
+            value: OC.currentStats.mve,
             inline: true
         },
         {
             name: "`DUR:`",
-            value: OC.dur,
+            value: OC.currentStats.dur,
             inline: true
         },
         {
             name: "`LCK:`",
-            value: OC.lck,
+            value: OC.currentStats.lck,
             inline: true
         },
         {
@@ -114,7 +95,7 @@ function createProfileEmbed(OC){
         },
         {
             name: "`REPRINTS:`",
-            value: OC.reprints,
+            value: OC.currentStats.reprints,
             inline: true
         },
         {
@@ -138,6 +119,16 @@ function createProfileEmbed(OC){
     return embedMessage;
 }
 
+const data = new SlashCommandBuilder() 
+    .setName('character')
+    .setDescription('Get a character\'s information.') 
+    .addStringOption((option)=>
+        option 
+            .setName('oc')
+            .setDescription('OC name (shows top 25 matching names)')
+            .setRequired(true)
+            .setAutocomplete(true)
+    );
 
 export default{
     data: data,

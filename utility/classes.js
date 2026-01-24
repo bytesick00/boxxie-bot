@@ -197,6 +197,14 @@ export class AnomalyBoxData {
       }
     }
 
+    getFlavorText(text_id){
+      for(const row of this.flavorText.dataRows){
+        if(row.getProp("Text ID") === text_id){
+          return row.getProp("Flavor Text");
+        }
+      }
+    }
+
 }
 
 /**
@@ -433,7 +441,8 @@ export class Character extends DataRow{
   }
 
   reprint(){
-    const error = Math.random() < 0.05; //5% chance of error
+    //const error = Math.random() < 0.05; //5% chance of error
+    const error = true; //5% chance of error
     this.currentStats.reset(this.baseStats);
     this.currentStats.addReprint();
     
