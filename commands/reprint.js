@@ -7,6 +7,8 @@ let compMessage = AB_DATA.getFlavorText("Reprint_Warning");
 let compPrintError = AB_DATA.getFlavorText("Reprint_Error")
 let ocName;
 
+await AB_DATA.pullData();
+
 const cancelComponent = [
     new ContainerBuilder()
         .setAccentColor(11326574)

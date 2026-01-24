@@ -1,4 +1,5 @@
 import { AnomalyBoxData } from './utility/classes.js';
+import 'dotenv/config';
 
 const SHEET_RANGES = [
         {
@@ -35,3 +36,5 @@ const SHEET_RANGES = [
 ]
 
 export const AB_DATA = await AnomalyBoxData.init(SHEET_RANGES);
+
+export const DEV_MODE = process.env.APP_ID.startsWith('146');

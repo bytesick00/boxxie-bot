@@ -40,6 +40,8 @@ export class DataTable{
     const newSheetTable = await SheetTable.init(this.name, this.parentSheetTable.sheetName, this.parentSheetTable.rangeA1);
     this.dataRows = newSheetTable.getDataTable();
     this.parentSheetTable = newSheetTable;
+
+    return this;
   }
 
   
@@ -53,19 +55,37 @@ export class DataTable{
    */
   getRow(searchTerm, searchColumnName, fuzzy = false){
 
-    for(const dataRow of this.dataRows){
-      let value = dataRow.dataObject[searchColumnName];
-      if(fuzzy){
-        if(value.includes(searchTerm)){
-          return dataRow;
-        }
-      } 
-      else{
-        if(value === searchTerm){
-          return dataRow;
+    try{
+      for(const dataRow of this.dataRows){
+        let value = dataRow.dataObject[searchColumnName];
+        if(fuzzy){
+          if(value.includes(searchTerm)){
+            return dataRow;
+          }
+        } 
+        else{
+          if(value == searchTerm){
+            return dataRow;
+          }
         }
       }
     }
+    catch {
+      for(const dataRow of this.dataRows.dataRows){
+        let value = dataRow.dataObject[searchColumnName];
+        if(fuzzy){
+          if(value.includes(searchTerm)){
+            return dataRow;
+          }
+        } 
+        else{
+          if(value === searchTerm){
+            return dataRow;
+          }
+        }
+      }
+    }
+    
   }
 
 }
@@ -107,6 +127,8 @@ export class DataRow{
     const newDataTable = await this.parentDataTable.pullData();
     this.dataObject = newDataTable[this.name];
     this.parentDataTable = newDataTable;
+
+    return this;
   }
 
 }
@@ -169,26 +191,40 @@ export class AnomalyBoxData {
      * @returns {Character} 
      */
     getOC(name, fuzzy = false){
-      const thisOCRow = this.ocInfo.getRow(name, "Full Name", fuzzy);
-      const thisBaseStatsRow = this.baseStats.getRow(name, "Name", fuzzy);
+
+      const thisOCRow = this.ocInfo.dataRows.getRow(name, "Full Name", fuzzy);
+      const thisBaseStatsRow = this.baseStats.dataRows.getRow(name, "Name", fuzzy);
       const thisCurrentStatsRow = this.currentStats.getRow(name, "Name", fuzzy);
 
-      return new Character(thisOCRow, thisBaseStatsRow, thisCurrentStatsRow);
+      const character = new Character(thisOCRow, thisBaseStatsRow, thisCurrentStatsRow);
+      return character
     }
 
     get allOCNames(){
       const ocNames = [];
-      for(const row of this.ocInfo.dataRows){
-        ocNames.push(row.getProp("Full Name"));
+      const ocData = this.ocInfo.dataRows;
+
+      try{
+        ocData.forEach((row)=>{
+        ocNames.push(row.getProp("Full Name"))
+      });
       }
-        
+      catch{
+        ocData.dataRows.forEach((row)=>{
+        ocNames.push(row.getProp("Full Name"))
+      });
+      }
+
+      
+ 
+      
       return ocNames;
     }
 
     async pullData(){
       try {
         this.dataTables.forEach(async (dataTable)=>{
-          await dataTable.pullData();
+          dataTable = await dataTable.pullData();
         })
         return true;
       } catch (error) {
