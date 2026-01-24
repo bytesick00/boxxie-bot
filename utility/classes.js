@@ -441,8 +441,8 @@ export class Character extends DataRow{
   }
 
   reprint(){
-    //const error = Math.random() < 0.05; //5% chance of error
-    const error = true; //5% chance of error
+    const error = Math.random() < 0.05; //5% chance of error
+    // const error = true; //5% chance of error
     this.currentStats.reset(this.baseStats);
     this.currentStats.addReprint();
     
