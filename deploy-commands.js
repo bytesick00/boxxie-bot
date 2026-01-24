@@ -1,12 +1,12 @@
 import { REST, Routes } from 'discord.js';
 import "dotenv/config";
-import { dynamicImport } from './dynamic-import.js';
+import { dynamicImportEvents } from './dynamic-import.js';
 
 // Construct and prepare an instance of the REST module
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 // and deploy your commands!
-dynamicImport('commands', './commands/utility').then((commands)=>{
+dynamicImportEvents('./commands').then((commands)=>{
     (async () => {
         try {
             console.log(`Started refreshing ${commands.length} application (/) commands.`);

@@ -1,13 +1,22 @@
 import { SlashCommandBuilder, EmbedBuilder, Embed } from 'discord.js';
-import {initializeTables, initializeOCs, getTable, getCharacter} from '../../utility/dataFunctions.js'
-import { Character } from '../../utility/classes.js';
+// import {initializeTables, initializeOCs, getTable, getCharacter} from '../utility/dataFunctions.js'
+import { AnomalyBoxData } from '../utility/classes.js';
+import { AB_DATA } from '../index.js';
 
-let allCharacters;
-const choices = await initializeTables().then(dataTables=>{
-            allCharacters = initializeOCs(getTable("OC Info", dataTables), getTable("Base Stats", dataTables), getTable("Current Stats", dataTables));
-            return allCharacters.map(OC => (OC.name)
-            );
-        });
+// let allCharacters;
+// const choices = await initializeTables().then(dataTables=>{
+//             allCharacters = initializeOCs(getTable("OC Info", dataTables), getTable("Base Stats", dataTables), getTable("Current Stats", dataTables));
+//             return allCharacters.map(OC => (OC.name)
+//             );
+//         });
+
+
+/**
+ * Description placeholder
+ *
+ * @type {AnomalyBoxData}
+ */
+let choices = AB_DATA.allOCNames;
 
 const data = new SlashCommandBuilder() 
     .setName('character')
@@ -20,7 +29,7 @@ const data = new SlashCommandBuilder()
             .setAutocomplete(true)
     );
 
-function createProfileEmbed(OC = new Character()){
+function createProfileEmbed(OC){
     const embedMessage = new EmbedBuilder()
         .setAuthor({
         name: "New Millennium Technologies",
@@ -65,37 +74,37 @@ function createProfileEmbed(OC = new Character()){
         },
         {
             name: "",
-            value: "**```\n🎲 STATS\n```**",
+            value: "**```\n🎲 CURRENT STATS\n```**",
             inline: false
         },
         {
             name: "`WIT:`",
-            value: OC.baseStats.wit,
+            value: OC.wit,
             inline: true
         },
         {
             name: "`CHR:`",
-            value: OC.currentStats.cha,
+            value: OC.cha,
             inline: true
         },
         {
             name: "`STR:`",
-            value: OC.currentStats.str,
+            value: OC.str,
             inline: true
         },
         {
             name: "`MVE:`",
-            value: OC.currentStats.mve,
+            value: OC.mve,
             inline: true
         },
         {
             name: "`DUR:`",
-            value: OC.currentStats.dur,
+            value: OC.dur,
             inline: true
         },
         {
             name: "`LCK:`",
-            value: OC.currentStats.lck,
+            value: OC.lck,
             inline: true
         },
         {
@@ -105,7 +114,7 @@ function createProfileEmbed(OC = new Character()){
         },
         {
             name: "`REPRINTS:`",
-            value: OC.currentStats.reprints,
+            value: OC.reprints,
             inline: true
         },
         {
@@ -134,10 +143,10 @@ export default{
     data: data,
     async execute(interaction) {
         const characterChoice = interaction.options.getString("oc");
-        console.log(characterChoice);
+        // console.log(characterChoice);
 
         try{
-            const characterInfo = getCharacter(characterChoice, allCharacters);
+            const characterInfo = AB_DATA.getOC(characterChoice, true);
             // console.log(characterInfo.currentStats)
             await interaction.reply(
                 {embeds: [createProfileEmbed(characterInfo)]}
