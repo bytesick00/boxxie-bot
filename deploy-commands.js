@@ -3,7 +3,7 @@ import "dotenv/config";
 import { dynamicImport } from './dynamic-import.js';
 
 // SET THIS TO TRUE FOR GLOBAL COMMAND DEPLOYMENT
-const deployGlobal = false;
+const deployGlobal = true;
 
 // Construct and prepare an instance of the REST module
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
