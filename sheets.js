@@ -1,13 +1,10 @@
 import {google} from 'googleapis';
 import path from 'node:path';
-// import {authenticate} from '@google-cloud/local-auth';
-import { numToLetter } from './utility/utils.js';
 
 const SPREADSHEET_ID = '13KW7JJNn-7TsoFZhYtmpQe3EO7ldlNr-iZVZNfThrvk';
 // The scope for reading spreadsheets.
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 // The path to the credentials file.
-// const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
 const CREDENTIALS_PATH = path.join(process.cwd(), './serviceCreds.json');
 
 const auth = new google.auth.GoogleAuth({
@@ -22,23 +19,13 @@ google.options({
 
 const sheets = google.sheets({version: 'v4'});
 
-export const TABLE_RANGES = {
-  munInfo: "A:G",
-  ocInfo: "A:J",
-  baseStats: "A:G",
-  currentStats: "A:G",
-  allItems: "A:H",
-  inventory: "A:D",
-  flavorText: "A:B"
-}
-
 //GENERAL SHEET FUNCTIONS
 
 export function rowValueR1C1ToA1(rowIndex, columnIndex){
   const letter = numToLetter(columnIndex);
-  //row 1 of data range = 2nd row
-  const num = rowIndex + 1;
-  return letter & num;
+  //row 1 of data range = 2nd row + 1 for starting at 0
+  const num = rowIndex + 2;
+  return `${letter}${num}`;
 }
 
 export async function pullInfo(sheetName, rangeA1) {
@@ -85,5 +72,8 @@ export function appendToRange(sheetName, rangeA1, rowValueArray){
   return result;
 }
 
-// let data = await pullInfo('Mun Info', TABLE_RANGES.munInfo);
-// console.log(data);
+export function numToLetter(number){
+
+    return String.fromCharCode(97 + number);
+
+}
