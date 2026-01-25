@@ -8,13 +8,12 @@ import { AB_DATA } from '../initialize-data.js';
  *
  * @type {AnomalyBoxData}
  */
-let choices = AB_DATA.allOCNames;
 
-function createProfileEmbed(OC = new Character()){
+function createProfileEmbed(OC){
     const embedMessage = new EmbedBuilder()
         .setAuthor({
         name: "New Millennium Technologies",
-        iconURL: "https://media.discordapp.net/attachments/1458216506403061772/1462992359246532826/favi.png?ex=6970354f&is=696ee3cf&hm=3f77e1c60ce57542047078047968a0ca07eb527254d9e872a1134ef2b501c36d&=&format=webp&quality=lossless",
+        iconURL: "https://images2.imgbox.com/4e/ec/hLgncloX_o.png",
         })
         .setTitle(OC.name)
         .addFields(
@@ -25,32 +24,32 @@ function createProfileEmbed(OC = new Character()){
         },
         {
             name: "`AGE:`",
-            value: OC.age,
+            value: `${OC.age}`,
             inline: true
         },
         {
             name: "`PRONOUNS:`",
-            value: OC.pronouns,
+            value: `${OC.pronouns}`,
             inline: true
         },
         {
             name: "`GENDER:`",
-            value: OC.gender,
+            value: `${OC.gender}`,
             inline: true
         },
         {
             name: "`HEIGHT:`",
-            value: OC.height,
+            value: `${OC.height}`,
             inline: true
         },
         {
             name: "`BIRTHDAY:`",
-            value: OC.birthday,
+            value: `${OC.birthday}`,
             inline: true
         },
         {
             name: "`BLOOD TYPE:`",
-            value: OC.bloodType,
+            value: `${OC.bloodType}`,
             inline: true
         },
         {
@@ -60,32 +59,32 @@ function createProfileEmbed(OC = new Character()){
         },
         {
             name: "`WIT:`",
-            value: OC.baseStats.wit,
+            value: `${OC.currentStats.wit}`,
             inline: true
         },
         {
             name: "`CHR:`",
-            value: OC.currentStats.cha,
+            value: `${OC.currentStats.cha}`,
             inline: true
         },
         {
             name: "`STR:`",
-            value: OC.currentStats.str,
+            value: `${OC.currentStats.str}`,
             inline: true
         },
         {
             name: "`MVE:`",
-            value: OC.currentStats.mve,
+            value: `${OC.currentStats.mve}`,
             inline: true
         },
         {
             name: "`DUR:`",
-            value: OC.currentStats.dur,
+            value: `${OC.currentStats.dur}`,
             inline: true
         },
         {
             name: "`LCK:`",
-            value: OC.currentStats.lck,
+            value: `${OC.currentStats.lck}`,
             inline: true
         },
         {
@@ -95,7 +94,7 @@ function createProfileEmbed(OC = new Character()){
         },
         {
             name: "`REPRINTS:`",
-            value: OC.currentStats.reprints,
+            value: `${OC.currentStats.reprints}`,
             inline: true
         },
         {
@@ -133,26 +132,27 @@ const data = new SlashCommandBuilder()
 export default{
     data: data,
     async execute(interaction) {
+        await interaction.deferReply();
         const characterChoice = interaction.options.getString("oc");
+        let characterInfo;
         // console.log(characterChoice);
-
         try{
-            const characterInfo = AB_DATA.getOC(characterChoice, true);
-            // console.log(characterInfo.currentStats)
-            await interaction.reply(
-                {embeds: [createProfileEmbed(characterInfo)]}
-            );
+            characterInfo = AB_DATA.getOC(characterChoice, true)
         }
         catch{
-            await interaction.reply(`I couldn't find an OC named ${characterChoice} :( Please use the autocomplete to select your OC.`)
-        }
+            await interaction.editReply(`I couldn't find an OC named ${characterChoice} :( Please use the autocomplete to select your OC.`)
+        } 
+        await interaction.editReply(
+                {embeds: [createProfileEmbed(characterInfo)]}
+            );
     },
     async autocomplete(interaction) {
+        let choices = AB_DATA.allOCNames;
 		const focusedValue = interaction.options.getFocused();
         let filtered = choices.filter((choice) => choice.toLowerCase().startsWith(focusedValue.toLowerCase()));
         if(filtered.length > 25){
             filtered = filtered.slice(0, 24)
         }
 		await interaction.respond(filtered.map((choice) => ({ name: choice, value: choice })));
-	},
+	}, 
 }

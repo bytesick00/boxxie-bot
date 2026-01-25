@@ -1,9 +1,10 @@
 import { REST, Routes } from 'discord.js';
 import "dotenv/config";
 import { dynamicImport } from './dynamic-import.js';
+import { DEV_MODE } from './initialize-data.js';
 
 // SET THIS TO TRUE FOR GLOBAL COMMAND DEPLOYMENT
-const deployGlobal = false;
+const deployGlobal = !DEV_MODE;
 
 // Construct and prepare an instance of the REST module
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
@@ -44,3 +45,4 @@ dynamicImport('./commands').then((commands)=>{
         }
         })();
 })
+

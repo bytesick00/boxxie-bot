@@ -2,10 +2,11 @@ import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { TextDisplayBuilder, ThumbnailBuilder, SectionBuilder, ContainerBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { AB_DATA } from '../initialize-data.js';
 
-let choices = AB_DATA.allOCNames;
 let compMessage = AB_DATA.getFlavorText("Reprint_Warning");
 let compPrintError = AB_DATA.getFlavorText("Reprint_Error")
 let ocName;
+
+await AB_DATA.pullData();
 
 const cancelComponent = [
     new ContainerBuilder()
@@ -119,7 +120,7 @@ async function reprintMessage(interaction){
 }
 
 const data = new SlashCommandBuilder() 
-    .setName('dev_reprint')
+    .setName('reprint')
     .setDescription('Reprints your character') 
     .addStringOption((option)=>
         option 
@@ -135,6 +136,7 @@ export default{
         await reprintMessage(interaction);
     },
     async autocomplete(interaction) {
+		let choices = AB_DATA.allOCNames;
 		const focusedValue = interaction.options.getFocused();
         let filtered = choices.filter((choice) => choice.toLowerCase().startsWith(focusedValue.toLowerCase()));
         if(filtered.length > 25){

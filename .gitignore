@@ -3,3 +3,5 @@ node_modules
 serviceCreds.json
 old
 dev.env
+test.js
+delete_command.js
