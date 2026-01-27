@@ -14,3 +14,22 @@ export function addStandardFormat(embedBuilder){
 
     return embedBuilder;
 }
+
+export function basicEmbed(title, description, thumbnail="", image = "", link = ""){
+    let embedMessage = new EmbedBuilder()
+            .setTitle(title)
+            .setDescription(description)
+
+    if(thumbnail!=""){
+        embedMessage.setThumbnail(thumbnail);
+    }
+    if(image!=""){
+        embedMessage.setImage(image);
+    }
+    if(link!=""){
+        embedMessage.setURL(link);
+    }
+    embedMessage = addStandardFormat(embedMessage);
+
+    return embedMessage;
+}
