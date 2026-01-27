@@ -12,7 +12,8 @@
     "start": "node index.js",
     "register": "node deploy-commands.js",
     "dev": "nodemon index.js",
-    "registerDev": "nodemon deploy-commands.js"
+    "registerDev": "nodemon deploy-commands.js",
+    "test": "node test.js"
   },
   "author": "Shay DeWael",
   "license": "MIT",

@@ -17,3 +17,15 @@ export function numToLetter(number){
 export function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+
+/**
+ * Returns a random number, starting with 0, to a maxNumber
+ *
+ * @export
+ * @param {Number} maxNumber 1/maxNumber chance 
+ * @returns {Number} 
+ */
+export function randOutOf(maxNumber){
+  return Math.round(Math.random() * maxNumber);
+}
