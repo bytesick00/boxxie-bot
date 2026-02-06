@@ -158,7 +158,7 @@ export class AnomalyBoxData {
      * @param {DataTable} _dataTables.mechanics 
      * @param {DataTable} _dataTables.flavorText 
      */
-    constructor([munInfo, ocInfo, baseStats, allItems, currentStats, inventoryRows, mechanics, flavorText]){
+    constructor([munInfo, ocInfo, baseStats, allItems, currentStats, inventoryRows, mechanics, flavorText, customCommands]){
         this.munInfo = munInfo;
         this.ocInfo = ocInfo;
         this.baseStats = baseStats;
@@ -167,6 +167,7 @@ export class AnomalyBoxData {
         this.inventoryRows = inventoryRows;
         this.mechanics = mechanics;
         this.flavorText = flavorText;
+        this.customCommands = customCommands;
     }
 
     static async init(sheetRanges){
@@ -181,7 +182,7 @@ export class AnomalyBoxData {
     }
 
     get dataTables(){
-      return [this.munInfo, this.ocInfo, this.baseStats, this.allItems, this.currentStats, this.inventoryRows, this.mechanics, this.flavorText];
+      return [this.munInfo, this.ocInfo, this.baseStats, this.allItems, this.currentStats, this.inventoryRows, this.mechanics, this.flavorText, this.customCommands];
     }
     /**
      * Gets the OC as a Character object
@@ -215,9 +216,6 @@ export class AnomalyBoxData {
       });
       }
 
-      
- 
-      
       return ocNames;
     }
 
@@ -235,10 +233,23 @@ export class AnomalyBoxData {
 
     getFlavorText(text_id){
       for(const row of this.flavorText.dataRows){
-        if(row.getProp("Text ID") === text_id){
+        if(row.getProp("Text ID") === text_id){ 
           return row.getProp("Flavor Text");
         }
       }
+    }
+
+    get allCustomCommandOptions(){
+      let commands = [];
+      for(const row of this.customCommands.dataRows){
+        commands.push(row.getProp("Option Name"));
+      }
+
+      return commands;
+    }
+
+    getCustomCommand(optionName){
+      return this.customCommands.getRow(optionName, "Option Name");
     }
 
 }

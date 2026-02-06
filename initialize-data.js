@@ -32,6 +32,10 @@ const SHEET_RANGES = [
         {
             sheet: "Flavor Text",
             range: "A:B"
+        },
+        {
+            sheet: "Custom Commands",
+            range: "A:G"
         }
 ]
 

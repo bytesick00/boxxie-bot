@@ -15,11 +15,15 @@ export function addStandardFormat(embedBuilder){
     return embedBuilder;
 }
 
-export function basicEmbed(title, description, thumbnail="", image = "", link = ""){
-    let embedMessage = new EmbedBuilder()
-            .setTitle(title)
-            .setDescription(description)
-
+export function basicEmbed(title="", description="", thumbnail="", image = "", link = ""){
+    let embedMessage = new EmbedBuilder();
+    
+    if(title!=""){
+        embedMessage.setTitle(title);
+    }
+    if(description!=""){
+        embedMessage.setDescription(description);
+    }
     if(thumbnail!=""){
         embedMessage.setThumbnail(thumbnail);
     }
@@ -29,6 +33,7 @@ export function basicEmbed(title, description, thumbnail="", image = "", link = 
     if(link!=""){
         embedMessage.setURL(link);
     }
+    
     embedMessage = addStandardFormat(embedMessage);
 
     return embedMessage;
