@@ -201,6 +201,13 @@ export class AnomalyBoxData {
       return character
     }
 
+    getMun(id){
+      const munRow = this.munInfo.dataRows.getRow(id, 'Discord ID');
+      const mun = new Mun(munRow);
+
+      return mun;
+    }
+
     get allOCNames(){
       const ocNames = [];
       const ocData = this.ocInfo.dataRows;
@@ -611,4 +618,50 @@ class CurrentStats extends BaseStats{
     this.lck = baseStats.lck;
   }
 
+}
+
+/**
+ * Represents a Mun
+ *
+ * @export
+ * @class Mun
+ * @typedef {Mun}
+ * @extends {DataRow}
+ */
+export class Mun extends DataRow{
+  
+  /**
+   * Creates an instance of Mun.
+   *
+   * @constructor
+   * @param {DataRow} munDataRow 
+   */
+  constructor(munDataRow){
+    super(munDataRow, munDataRow.parentDataTable);
+    this.id = munDataRow.getProp('Discord ID');
+    this.name = munDataRow.getProp('Mun Name');
+  }
+  
+  get scrip(){
+    const scripString = this.dataObject.getProp('Scrip');
+    if(typeof scripString === 'string'){
+      return parseInt(scripString.split(' ')[0])
+    }
+    else{
+      return scripString;
+    }
+  }  
+
+  set scrip(value){
+    this.dataObject.setProp(this.id, 'Discord ID', 'Scrip', value);
+  }
+
+  addScrip(value){
+    this.scrip = this.scrip + value;
+  }
+
+  removeScrip(value){
+    this.scrip = this.scrip - value;
+  }
+  
 }
