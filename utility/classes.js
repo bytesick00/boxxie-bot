@@ -202,7 +202,7 @@ export class AnomalyBoxData {
     }
 
     getMun(id){
-      const munRow = this.munInfo.dataRows.getRow(id, 'Discord ID');
+      const munRow = this.munInfo.getRow(id, 'Discord ID');
       const mun = new Mun(munRow);
 
       return mun;
@@ -257,6 +257,35 @@ export class AnomalyBoxData {
 
     getCustomCommand(optionName){
       return this.customCommands.getRow(optionName, "Option Name");
+    }
+
+    get shop(){
+      return new Shop(this.allItems);
+    }
+
+    
+    /**
+     * gets the inventory for a given mun
+     *
+     * @param {Mun} mun 
+     */
+    getInventory(mun){
+      const itemArray = [];
+      let currentItem;
+
+      for(const itemRow of this.inventoryRows.dataRows){
+        if(itemRow.getProp('User ID') === mun.id){
+          //get matching Shop item
+          currentItem = this.allItems.getRow(itemRow.getProp('Item'), 'Name');
+          
+          itemArray.push(new InventoryItem(itemRow, currentItem, mun, itemRow.getProp('Amount')))
+          
+        }
+      }
+
+      const inventory = new Inventory(itemArray, mun)
+
+      return inventory;
     }
 
 }
@@ -664,4 +693,162 @@ export class Mun extends DataRow{
     this.scrip = this.scrip - value;
   }
   
+}
+
+export class Inventory{
+  
+  /**
+   * Creates an instance of Inventory
+   *
+   * @constructor
+   * @param {InventoryItem[]} invItemArray
+   * @param {Mun} mun - mun who owns the item
+   */
+  constructor(invItemArray, mun){
+    this.rawInvItems = invItemArray;
+    this.owner = mun;
+    
+    let itemNames = this.rawInvItems.map((item)=>item.name);
+    let set = new Set(itemNames);
+    itemNames = [...set];
+
+    let uniqueItems = [];
+    let currentNameItems;
+    let exampleItem;
+    for(const name of itemNames){
+
+      currentNameItems = [];
+
+      for(const invItem of this.rawInvItems){
+        if(invItem.name === name){
+          currentNameItems.push(invItem);
+          exampleItem = invItem;
+        }
+      }
+
+      //get sum of quantities
+      const totalQuantity = currentNameItems.map(item=>parseInt(item.quantity)).reduce((partialSum, a) => partialSum + a, 0)
+
+      if(totalQuantity>0){
+        uniqueItems.push(new InventoryItem(exampleItem.inventoryRow, exampleItem.itemRow, this.owner, totalQuantity))
+      }
+    }
+
+    this.items = uniqueItems;
+    
+  }
+
+  get formattedInventory(){
+    return this.items.map((item)=>{
+      return {Name: item.name, Desc: item.description, Quantity: item.quantity}
+    })
+  }
+
+}
+
+export class Item extends DataRow{
+  constructor(itemDataRow){
+    super(itemDataRow.dataObject, itemDataRow.parentDataTable);
+  }
+
+  get isGiftable(){
+    return this.getProp('Giftable');
+  }
+
+  get buyPrice(){
+    return this.getProp('Buy Price');
+  }
+
+  get sellPrice(){
+    return this.getProp('Sell Price')
+  }
+
+  get shopType(){
+    return this.getProp('Shop')
+  }
+
+  get itemType(){
+    return this.getProp('Item Type')
+  }
+
+  get name(){
+    return this.getProp('Name')
+  }
+
+  get description(){
+    return this.getProp('Description')
+  }
+
+  get useFlavorText(){
+    return this.getProp('Use Flavor Text')
+  }
+
+  get image(){
+    return this.getProp('Image Link')
+  }
+
+}
+
+export class InventoryItem extends Item{
+  
+  /**
+   * Creates an instance of InventoryItem.
+   *
+   * @constructor
+   * @param {DataRow} inventoryRow - the row matching the item name
+   * @param {DataRow} itemRow - shop item row
+   * @param {Mun} mun - mun who owns this
+   */
+  constructor(inventoryRow, itemRow, mun, quantity){
+    super(itemRow);
+    this.owner = mun;
+    this.itemRow = itemRow;
+    this.inventoryRow = inventoryRow;
+    this.quantity = quantity;
+  }
+
+  get name(){
+    return this.dataObject.Name;
+  }
+
+}
+
+export class Shop{
+  
+  /**
+   * Creates an instance of Shop.
+   *
+   * @constructor
+   * @param {DataTable} itemDataTable 
+   */
+  constructor(itemDataTable){
+    this.parentDataTable = itemDataTable;
+    this.items = [];
+    for(const item of itemDataTable.dataRows){
+      this.items.push(new Item(item));
+    }
+
+  }
+
+  get oocItems(){
+    for(const item of this.items){
+      if(item.shopType === "OOC"){
+        return item;
+      }
+    }
+  }
+
+  get icItems(){
+    for(const item of this.items){
+      if(item.shopType === "IC"){
+        return item
+      }
+    }
+  }
+
+  getItem(itemName){
+    const itemRow = this.parentDataTable.getRow(itemName, 'Name');
+    return new Item(itemRow);
+  }
+
 }

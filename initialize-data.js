@@ -16,7 +16,7 @@ const SHEET_RANGES = [
         },
         {
             sheet: "All Items",
-            range: "A:H"
+            range: "A:I"
         },
         {
             sheet: "Current Stats",

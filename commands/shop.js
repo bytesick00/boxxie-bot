@@ -1,21 +1,21 @@
-import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+// import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
 
-const commandBuilder = new SlashCommandBuilder()
-        .setName('')
-        .setDescription('')
+// const commandBuilder = new SlashCommandBuilder()
+//         .setName('')
+//         .setDescription('')
 
-async function mainFunction(interaction){
+// async function mainFunction(interaction){
 
-    await interaction.reply(
+//     await interaction.reply(
 
-    )
-}
+//     )
+// }
 
-export default{
-    data: commandBuilder,
-    async execute(interaction) {
+// export default{
+//     data: commandBuilder,
+//     async execute(interaction) {
 
-        await mainFunction(interaction);
+//         await mainFunction(interaction);
 
-    },
-}
+//     },
+// }

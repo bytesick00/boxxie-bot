@@ -2,7 +2,18 @@
 
 import { AB_DATA } from "./initialize-data.js"
 import { randOutOf } from "./utility/utils.js"
+import { AnomalyBoxData, Mun, Inventory } from "./utility/classes.js"
 
-// console.log(AB_DATA.ocInfo.getRow("temp", "Full Name", true).getProp("Blood Type"));
 
-// console.log(AB_DATA.getOC("Temperance", true).getProp("Blood Type"));
+/**
+ * AB_DATA
+ *
+ * @type {AnomalyBoxData}
+ */
+const abData = AB_DATA;
+
+// const mun = abData.getMun('308388985540050956');
+// const inventory = abData.getInventory(mun);
+
+// console.log(abData.shop.getItem('Half & Half').description)
+
