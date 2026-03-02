@@ -1,7 +1,7 @@
 import { AnomalyBoxData } from './utility/classes.js';
 import 'dotenv/config';
 
-const SHEET_RANGES = [
+export const SHEET_RANGES = [
         {
             sheet: "Mun Info",
             range: "A:G"
