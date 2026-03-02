@@ -3,17 +3,19 @@
 import { AB_DATA } from "./initialize-data.js"
 import { randOutOf } from "./utility/utils.js"
 import { AnomalyBoxData, Mun, Inventory } from "./utility/classes.js"
+import { cacheShop } from "./utility/access_data.js";
+import { JSONFilePreset } from "lowdb/node";
 
+// for testing
+const shopRange = {
+        sheet: "All Items",
+        range: "A:I"
+    }
 
-/**
- * AB_DATA
- *
- * @type {AnomalyBoxData}
- */
-const abData = AB_DATA;
+const shopDefault = {
+    items: []
+}
 
-// const mun = abData.getMun('308388985540050956');
-// const inventory = abData.getInventory(mun);
+const shopDb = await JSONFilePreset('./data/shop-data.json', shopDefault)
 
-// console.log(abData.shop.getItem('Half & Half').description)
-
+await cacheShop(shopRange, shopDb);

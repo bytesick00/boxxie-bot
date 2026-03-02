@@ -5,3 +5,4 @@ old
 dev.env
 test.js
 delete_command.js
+data/shop-data.json

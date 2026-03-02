@@ -1,0 +1,48 @@
+{
+  "items": [
+    {
+      "name": "Half & Half",
+      "type": "Consumable",
+      "giftable": "TRUE",
+      "description": "Some cream would be a dream...",
+      "useText": "You took a swig of straight Half & Half. It tastes somewhat creamy, somewhat like typical milk.",
+      "buyPrice": "10 scrip",
+      "sellPrice": "2 scrip",
+      "shopType": "IC",
+      "image": "https://images.heb.com/is/image/HEBGrocery/001401766-2"
+    },
+    {
+      "name": "BlingoClap",
+      "type": "Usable",
+      "giftable": "TRUE",
+      "description": "Yippee!!! Yay!!!",
+      "useText": "You clapped your little stubby hands and felt pure joy.",
+      "buyPrice": "5 scrip",
+      "sellPrice": "0 scrip",
+      "shopType": "OOC",
+      "image": "https://media.discordapp.net/attachments/1462016699388924111/1462018651258355723/image.png?ex=696caa79&is=696b58f9&hm=4eb07354e0ffed76f7c3b7556ccc9be9c06890c110b52248b5bf2d5557be24b8&=&format=webp&quality=lossless&width=398&height=341"
+    },
+    {
+      "name": "Weed Bunt",
+      "type": "Consumable",
+      "giftable": "TRUE",
+      "description": "It's called a Weed Bunt. Does not come with three weed smoking girlfriends :(",
+      "useText": "You took a hit. Heh. Nice.",
+      "buyPrice": "20 scrip",
+      "sellPrice": "18 scrip",
+      "shopType": "IC",
+      "image": "https://64.media.tumblr.com/c38897cc686ee9b7365e9bb9bbfaffa8/tumblr_ny5k4qvxRf1uat0uqo1_640.jpg"
+    },
+    {
+      "name": "Test Item",
+      "type": "Usable",
+      "giftable": "FALSE",
+      "description": "Test Description",
+      "useText": "Flavor Text",
+      "buyPrice": "0 scrip",
+      "sellPrice": "0 scrip",
+      "shopType": "OOC",
+      "image": "https://media.tenor.com/dbQCQoYpRGcAAAAj/yippee-hyper-yipeeee.gif"
+    }
+  ]
+}
