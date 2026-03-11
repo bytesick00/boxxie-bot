@@ -1,21 +1,24 @@
-// import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import cache from "../data/cached-data.json" with { type: 'json' };
 
-// const commandBuilder = new SlashCommandBuilder()
-//         .setName('')
-//         .setDescription('')
+const commandBuilder = new SlashCommandBuilder()
+        .setName('shop')
+        .setDescription('view shop')
 
-// async function mainFunction(interaction){
+const shopData = cache.shop;
 
-//     await interaction.reply(
+async function mainFunction(interaction){
 
-//     )
-// }
+    await interaction.reply(
+        
+    )
+}
 
-// export default{
-//     data: commandBuilder,
-//     async execute(interaction) {
+export default{
+    data: commandBuilder,
+    async execute(interaction) {
 
-//         await mainFunction(interaction);
+        await mainFunction(interaction);
 
-//     },
-// }
+    },
+}

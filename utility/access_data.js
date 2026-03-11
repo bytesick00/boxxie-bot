@@ -1,6 +1,45 @@
-import { JSONFilePreset  } from "lowdb/node";
-import { SheetTable, DataTable, DataRow } from "./classes.js";
+import { JSONFile, JSONFilePreset } from "lowdb/node";
+import { SheetTable } from "./classes.js";
+import { existsSync } from "node:fs";
+import { Low } from "lowdb";
 
+export const SHEET_RANGES = [
+        {
+            sheet: "Mun Info",
+            range: "A:G"
+        },
+        {
+            sheet: "OC Info",
+            range: "A:J"
+        },
+        {
+            sheet: "Base Stats",
+            range: "A:G"
+        },
+        {
+            sheet: "All Items",
+            range: "A:I"
+        },
+        {
+            sheet: "Current Stats",
+            range: "A:I"
+        },
+        {   sheet: "Inventory Rows",
+            range: "A:E"
+        },
+        {
+            sheet: "Mechanics",
+            range: "A:C",
+        },
+        {
+            sheet: "Flavor Text",
+            range: "A:B"
+        },
+        {
+            sheet: "Custom Commands",
+            range: "A:G"
+        }
+]
 const shopKeys = [
     {
         db: "name",
@@ -194,7 +233,11 @@ const inventoryKeys = [
     },
     {
         db: "amount",
-        sheet: "Amount"
+        sheet: "Amount",
+    },
+    {
+        db: "date",
+        sheet: "Transaction Date"
     }
 ]
 const mechanicKeys = [
@@ -251,7 +294,6 @@ const customKeys = [
         sheet: "Embed?"
     }
 ]
-
 const allKeys = {
     'All Items': {keys: shopKeys, field: "shop"},
     'Mun Info': {keys: munKeys, field: "muns"},
@@ -264,17 +306,57 @@ const allKeys = {
     'Custom Commands': {keys: customKeys, field: "customCommands"}
 }
 
-export async function cacheAllData(sheetRanges, db){
-    for(const sheetRange of sheetRanges){
-        const tableKeys = allKeys[sheetRange.sheet].keys
-        const tableField = allKeys[sheetRange.sheet].field
-        await cacheData(sheetRange, tableKeys, tableField, db)
-    }
+const dbDefault = {
+    shop: [],
+    muns: [],
+    ocs: [],
+    baseStats: [],
+    currentStats: [],
+    inventory: [],
+    flavorText: [],
+    customCommands: [],
+    mechanics: []
 }
 
-async function cacheData(sheetRange, tableKeys, field, db){
+const cachePath = './data/cached-data.json';
+
+/**
+ * db adapter
+ *
+ * @type {Low}
+ */
+let db; 
+
+async function setUpAdapter(){
+    
+    if(existsSync(cachePath)){
+        db = new Low(new JSONFile(cachePath), {})
+        await db.read();
+    }
+    else{
+        db = await JSONFilePreset(cachePath, dbDefault)
+    }
+
+}
+
+export async function cacheAllData(overwrite = false){
+    setUpAdapter();
+    
+    for(const sheetRange of SHEET_RANGES){
+        const tableKeys = allKeys[sheetRange.sheet].keys
+        const tableField = allKeys[sheetRange.sheet].field
+        await cacheData(sheetRange, tableKeys, tableField, overwrite)
+    }
+
+}
+
+async function cacheData(sheetRange, tableKeys, field, overwrite){
     const thisTable = await SheetTable.init(sheetRange.sheet, sheetRange.sheet, sheetRange.range);
     const thisDataTable = thisTable.getDataTable();
+
+    if(overwrite){
+        db.data[field] = [];
+    }
     
     for(const dataRow of thisDataTable.dataRows){
         const thisItem = {}
@@ -282,7 +364,68 @@ async function cacheData(sheetRange, tableKeys, field, db){
             thisItem[prop.db]= dataRow.getProp(prop.sheet)
         }
 
-        db.data[field].push(thisItem);
-        await db.write();
+        //Only overwrites data if told to
+        if(overwrite || !db.data[field].some(e => Object.values(e)[0] == Object.values(thisItem)[0])){
+            db.data[field].push(thisItem);
+            await db.write();
+        }
+
     }
+}
+
+export async function updateData(field, indexProperty, indexValue, property, newValue){
+    const fieldData = db.data[field];
+    
+    //updates sheet
+    const sheetName = getSheetName(field);
+    const sheetTable = await SheetTable.init(field, sheetName, SHEET_RANGES.find(table => table.sheet === sheetName).range);
+    
+    sheetTable.updateValue(indexValue, getSheetColumnName(field, indexProperty), getSheetColumnName(field, property), newValue);
+
+    //updates cache
+    fieldData[property] = newValue;
+    await db.write();
+
+}
+
+export async function addData(field, newDataObject){
+    //update sheet
+    const sheetName = getSheetName(field);
+    const sheetTable = await SheetTable.init(field, sheetName, SHEET_RANGES.find(table => table.sheet === sheetName).range);
+    
+    sheetTable.appendRow(Object.values(newDataObject))
+
+    //updates cache
+    db.data[field].push(newDataObject);
+    await db.write();
+}
+
+export function getData(field, searchProperty, searchValue){
+    
+    const fieldData = db.data[field];
+
+    return fieldData.find((item => item[searchProperty] === searchValue));
+}
+
+/**
+ * 
+ * @param {string} field 
+ * @return {Object[]} array of "table row" data objects
+ */
+export function getTableData(field){
+    return db.data[field];
+}
+
+function getSheetName(field){
+    return Object.keys(allKeys)[Object.values(allKeys).findIndex(table=> table.field === field)];
+}
+
+function getSheetColumnName(field, dbProp){
+    const keys = Object.values(allKeys).find(table => table.field === field).keys;
+    return keys.find(property => property.db === dbProp).sheet;
+}
+
+export function getFieldProperties(field){
+    return Object.values(allKeys).find(table => table.field === field).keys.map(key => key.db)
+
 }
