@@ -373,6 +373,14 @@ async function cacheData(sheetRange, tableKeys, field, overwrite){
     }
 }
 
+export async function cacheField(field, overwrite){
+    const tableKeys = getFieldProperties(field);
+    const sheetRange = getSheetName(field);
+
+    await cacheData(sheetRange, tableKeys, field, overwrite);
+    console.log(`Cached ${field} data, overwrite=${overwrite}`);
+}
+
 export async function updateData(field, indexProperty, indexValue, property, newValue){
     const fieldData = db.data[field];
     

@@ -363,7 +363,50 @@ export class Mun extends DBTable {
   }
 
   get inventory(){
-    const allRows = getTableData('inventory').filter(table => table.id === this.id);
+    return new Inventory(this);
+  }
+
+  addScrip(addAmount){
+    this.scrip += addAmount
+    super.changeProperty('scrip', this.scrip)
+  }
+
+  removeScrip(removeAmount){
+    this.scrip -= removeAmount
+    super.changeProperty('scrip', this.scrip)
+  }
+
+}
+
+export class Inventory{
+  constructor(mun){
+    this.mun = mun;
+    this.pullFromCache();
+  }
+
+  async buyItem(itemName, quantity){
+    const thisItem = new Item(itemName);
+
+    if(this.mun.scrip < thisItem.buyPrice*quantity){
+      throw new Error("Not enough scrip!");
+    }
+
+    //remove scrip
+    this.mun.removeScrip(thisItem.buyPrice);
+    const currentDate = new Date();
+    const newRowData = {'id': this.mun.id, 'name': this.mun.name, 'item': thisItem.name, 'amount': quantity, 'date': currentDate.toUTCString()};
+    await addData('inventory', newRowData).then(()=>{return true})
+    
+    // this.pullFromCache();
+    
+  }
+
+  getItemQuantity(itemName){
+    return this.items.find(item=>item.item===itemName).quantity;
+  }
+
+  pullFromCache(){
+    const allRows = getTableData('inventory').filter(table => table.id === this.mun.id);
     const inventory = []
     let itemsArray = allRows.map(out => out.item)
     let itemSet = new Set(itemsArray)
@@ -379,38 +422,8 @@ export class Mun extends DBTable {
           inventory.push({item: item, quantity: quantity})
         }
       }
-    
-    return inventory;
+
+    this.items = inventory;
   }
-
-  addScrip(addAmount){
-    this.scrip += addAmount
-    super.changeProperty('scrip', this.scrip)
-  }
-
-  removeScrip(removeAmount){
-    this.scrip -= removeAmount
-    super.changeProperty('scrip', this.scrip)
-  }
-
-  buyItem(itemName, quantity){
-    const thisItem = new Item(itemName);
-
-    if(this.scrip < thisItem.buyPrice*quantity){
-      throw new Error("Not enough scrip!");
-    }
-
-    //remove scrip
-    this.removeScrip(thisItem.buyPrice);
-    const currentDate = new Date();
-    addData('inventory', {'id': this.id, 'name': this.name, 'item': thisItem.name, 'amount': quantity, 'date': currentDate.toUTCString()})
-    
-  }
-
-  getItemQuantity(itemName){
-    const inventory = this.inventory;
-    return inventory.filter(item=>item.item===itemName).quantity;
-  }
-
 
 }

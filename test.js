@@ -14,5 +14,12 @@ const itemRow = {
     }
 
 const test = new Mun('Marcus');
-test.scrip = 20
-test.buyItem('Weed Bunt', 2)
+test.scrip = 40
+// test.buyItem('Weed Bunt', 2)
+console.log(`${test.scrip} scrip`)
+console.log(`amount: ${test.inventory.getItemQuantity('Weed Bunt')}`)
+await test.inventory.buyItem('Weed Bunt', 2)
+console.log('buying items...')
+
+console.log(`${test.scrip} scrip`)
+console.log(`amount: ${test.inventory.getItemQuantity('Weed Bunt')}`)
