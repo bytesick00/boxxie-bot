@@ -18,7 +18,7 @@ export const SHEET_RANGES = [
         },
         {
             sheet: "All Items",
-            range: "A:I"
+            range: "A:J"
         },
         {
             sheet: "Current Stats",
@@ -72,6 +72,10 @@ const shopKeys = [
     {
         db: "shop",
         sheet: "Shop"
+    },
+    {
+        db: "id",
+        sheet: "ID"
     },
     {
         db: "image",
@@ -340,7 +344,7 @@ async function setUpAdapter(){
 }
 
 export async function cacheAllData(overwrite = false){
-    setUpAdapter();
+    await setUpAdapter();
     
     for(const sheetRange of SHEET_RANGES){
         const tableKeys = allKeys[sheetRange.sheet].keys
@@ -375,14 +379,13 @@ async function cacheData(sheetRange, tableKeys, field, overwrite){
 
 export async function cacheField(field, overwrite){
     const tableKeys = getFieldProperties(field);
-    const sheetRange = getSheetName(field);
+    const sheetName = getSheetName(field);
 
-    await cacheData(sheetRange, tableKeys, field, overwrite);
+    await cacheData(SHEET_RANGES.find(range => range.sheet === sheetName), tableKeys, field, overwrite);
     console.log(`Cached ${field} data, overwrite=${overwrite}`);
 }
 
 export async function updateData(field, indexProperty, indexValue, property, newValue){
-    const fieldData = db.data[field];
     
     //updates sheet
     const sheetName = getSheetName(field);
@@ -391,7 +394,8 @@ export async function updateData(field, indexProperty, indexValue, property, new
     sheetTable.updateValue(indexValue, getSheetColumnName(field, indexProperty), getSheetColumnName(field, property), newValue);
 
     //updates cache
-    fieldData[property] = newValue;
+    const dataRow = db.data[field].find(row=>row[indexProperty]===indexValue)
+    dataRow[property] = String(newValue);
     await db.write();
 
 }
@@ -415,13 +419,20 @@ export function getData(field, searchProperty, searchValue){
     return fieldData.find((item => item[searchProperty] === searchValue));
 }
 
-/**
+/** 
  * 
  * @param {string} field 
  * @return {Object[]} array of "table row" data objects
  */
 export function getTableData(field){
-    return db.data[field];
+    
+    if(db === undefined){ 
+        return setUpAdapter().then(()=>{
+            return db.data[field]
+        })
+    }else{
+        return db.data[field];
+    }
 }
 
 function getSheetName(field){

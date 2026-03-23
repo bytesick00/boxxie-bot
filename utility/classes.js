@@ -5,6 +5,7 @@ import {
   rowValueR1C1ToA1,
 } from "../sheets.js";
 import { addData, getData, getFieldProperties, getTableData, updateData } from "./access_data.js";
+import { randOutOf } from "./utils.js";
 
 /**
  * Holds data as an array of DataRow objects, in the form {header1: value1, header2: value2, ...}
@@ -13,7 +14,7 @@ import { addData, getData, getFieldProperties, getTableData, updateData } from "
  **/
 export class DataTable {
   /**
-   * Creates an instance of DataTable.
+   * Creates an instance of DataTable. A DataTable holds an array of DataRow objects, in the form {property1: value, property2: value, etc...}
    *
    * @constructor
    * @param {string} name The name of the table
@@ -39,6 +40,13 @@ export class DataTable {
     this.parentSheetTable.appendRow(dataRow.values());
   }
 
+  
+  /**
+   * Pulls all new data from the spreadsheet and pushes to current DataTable 
+   *
+   * @async
+   * @returns {DataTable} 
+   */
   async pullData() {
     const newSheetTable = await SheetTable.init(
       this.name,
@@ -52,7 +60,7 @@ export class DataTable {
   }
 
   /**
-   * Gets a DataRow from the table
+   * Gets a DataRow from the table, e.x. one OC's properties
    *
    * @param {string} searchTerm
    * @param {string} searchColumnName
@@ -90,6 +98,14 @@ export class DataTable {
   }
 }
 
+
+/**
+ * A DataRow is an object holding one spreadsheet row's worth of data in the form {columnTitle: value, etc...}
+ *
+ * @export
+ * @class DataRow
+ * @typedef {DataRow}
+ */
 export class DataRow {
   /**
    * Creates an instance of DataRow.
@@ -283,7 +299,7 @@ export class SheetTable {
 }
 
 /**
- * Cached data table
+ * Represents a cached data table, handles all functions needed to push/pull data from spreadsheet to the cached-data.json file
  *
  * @param {string} data - The data object for this cached table
  * @class DBTable
@@ -305,8 +321,8 @@ export class DBTable {
     this.indexInfo = {tableField: field, indexProperty: indexProperty, indexValue: indexValue}
   }
 
-  changeProperty(property, newValue){
-    updateData(this.indexInfo.tableField, this.indexInfo.indexProperty, this.indexInfo.indexValue, property, newValue)
+  async changeProperty(property, newValue){
+    await updateData(this.indexInfo.tableField, this.indexInfo.indexProperty, this.indexInfo.indexValue, property, newValue)
   }
 }
 
@@ -323,7 +339,55 @@ export class Character extends DBTable {
     this.birthday = this.data.birthday;
     this.bloodType = this.data.bloodType;
     this.image = this.data.image;
+    this.height = this.data.height;
+    this.baseStats = new baseStats(this.name);
+
   }
+
+  get currentStats(){
+    return new currentStats(this.name)
+  }
+
+  async reprint(){
+    const currentReprints = parseInt(this.currentStats.reprints);
+    await this.currentStats.setStat('reprints', currentReprints+1)
+    const error =  Math.random() < 0.05;
+    await this.currentStats.setStat('error', error)
+    return error;
+  }
+}
+
+export class baseStats extends DBTable {
+  constructor(ocName){
+    super('currentStats', 'name', ocName)
+    this.name = this.data.name;
+    this.wit = this.data.wit;
+    this.cha = this.data.cha;
+    this.str = this.data.str;
+    this.mve = this.data.mve;
+    this.dur = this.data.dur;
+    this.lck = this.data.lck;
+  }
+}
+
+export class currentStats extends DBTable {
+  constructor(ocName){
+    super('currentStats', 'name', ocName)
+    this.name = this.data.name;
+    this.wit = this.data.wit;
+    this.cha = this.data.cha;
+    this.str = this.data.str;
+    this.mve = this.data.mve;
+    this.dur = this.data.dur;
+    this.lck = this.data.lck;    
+    this.reprints = this.data.reprints;
+    this.error = this.data.error;
+  }
+
+  async setStat(statName, newValue){
+    await super.changeProperty(statName, newValue);
+  }
+
 }
 
 export class Item extends DBTable {
@@ -335,9 +399,10 @@ export class Item extends DBTable {
     this.description = this.data.description;
     this.useText = this.data.useText;
     this.shop = this.data.shop;
+    this.id = this.data.id;
     this.image = this.data.image;
-    this.buyPrice = parseInt(this.data.buyPrice);
-    this.sellPrice = parseInt(this.data.sellPrice);
+    this.buyPrice = sanitizeScrip(this.data.buyPrice);
+    this.sellPrice = sanitizeScrip(this.data.sellPrice);
   }
 
 }
@@ -356,57 +421,121 @@ export class Mun extends DBTable {
     this.name = this.data.name;
     this.pronouns = this.data.pronouns;
     this.timezone = this.data.timezone;
-    this.scrip = parseInt(this.data.scrip);
+    this.scrip = sanitizeScrip(this.data.scrip);
     this.id = this.data.id;
     this.status = this.data.status;
     this.ocs = this.data.ocs;
   }
 
   get inventory(){
-    return new Inventory(this);
+    return (async () => {
+        return await Inventory.init(this);
+    })();
   }
 
-  addScrip(addAmount){
-    this.scrip += addAmount
-    super.changeProperty('scrip', this.scrip)
+  async setScrip(setAmount){
+    this.scrip = setAmount
+    await super.changeProperty('scrip', this.scrip)
   }
 
-  removeScrip(removeAmount){
-    this.scrip -= removeAmount
-    super.changeProperty('scrip', this.scrip)
+  async addScrip(addAmount){
+    const add = sanitizeScrip(addAmount)
+    const currentScrip = this.scrip;
+    this.scrip = currentScrip + add
+    await super.changeProperty('scrip', this.scrip)
+  }
+
+  async removeScrip(removeAmount){
+    const currentScrip = this.scrip;
+    const remove = sanitizeScrip(removeAmount)
+
+    if(removeAmount > currentScrip){
+      throw new Error("Not enough scrip!");
+    }
+
+    this.scrip = currentScrip - remove
+    await super.changeProperty('scrip', this.scrip)
   }
 
 }
 
 export class Inventory{
   constructor(mun){
-    this.mun = mun;
-    this.pullFromCache();
+    this.mun = mun
   }
 
   async buyItem(itemName, quantity){
     const thisItem = new Item(itemName);
-
-    if(this.mun.scrip < thisItem.buyPrice*quantity){
-      throw new Error("Not enough scrip!");
-    }
-
     //remove scrip
-    this.mun.removeScrip(thisItem.buyPrice);
+    try{
+      if(quantity > 0){
+        await this.mun.removeScrip(thisItem.buyPrice*quantity);
+      }
+      
+    }
+    catch (error){
+      throw error;
+    }
+    
     const currentDate = new Date();
     const newRowData = {'id': this.mun.id, 'name': this.mun.name, 'item': thisItem.name, 'amount': quantity, 'date': currentDate.toUTCString()};
     await addData('inventory', newRowData).then(()=>{return true})
     
-    // this.pullFromCache();
+    await this.refresh();
     
+  }
+
+  async refresh(){
+    const refreshed = await Inventory.init(this.mun)
+    this.items = refreshed.items
   }
 
   getItemQuantity(itemName){
     return this.items.find(item=>item.item===itemName).quantity;
   }
 
-  pullFromCache(){
-    const allRows = getTableData('inventory').filter(table => table.id === this.mun.id);
+  
+  /**
+   * get an inventory item as an Item object
+   *
+   * @param {string} itemName 
+   * @returns {(Item | "Not in inventory!")} 
+   */
+  getItem(itemName){
+    
+    if(this.checkInventory(itemName)){
+      return new Item(itemName)
+    }
+    return 'Not in inventory!'
+  }
+
+  async useItem(itemName){
+    /**
+     * @type {Item}
+     */
+    const item = this.getItem(itemName)
+    const useType = item.type
+
+    if(useType === 'Usable'){
+      return {text:item.useText, consumed: false}
+    }
+    else{
+      await this.buyItem(item.name, -1)
+      return {text: item.useText, consumed: true}
+    }
+  }
+
+  checkInventory(itemName){
+
+    const itemNames = this.getAllItemNames();
+    if(itemNames.includes(itemName)){
+      return true
+    }
+    return false
+  }
+
+  static async init(mun){
+    const allRows = (getTableData('inventory')).filter(table => table.id === mun.id);
     const inventory = []
     let itemsArray = allRows.map(out => out.item)
     let itemSet = new Set(itemsArray)
@@ -422,8 +551,39 @@ export class Inventory{
           inventory.push({item: item, quantity: quantity})
         }
       }
-
-    this.items = inventory;
+    
+    const newInv = new Inventory(mun)
+    newInv.items = inventory;
+    return newInv
   }
 
+  getAllItemNames(){
+    return this.items.map(item=> item.item)
+  }
+
+}
+
+// MISC FUNCTIONS
+export function getFlavorText(textID){
+    return getData('flavorText', 'id', textID)
+}
+export function getAllItemNames(shopType){
+  const itemRows = getTableData('shop')
+  if(shopType === null){
+    return itemRows.map(row=> row.name)
+  }
+  else{
+    return itemRows.filter(row=>row.shop === shopType).map(row=> row.name)
+  }
+  
+}
+
+function sanitizeScrip(scrip){
+  if(typeof scrip === 'string'){
+    const output = scrip.replaceAll(',','').replace('scrip', '').trim();
+    return parseInt(output)
+  }
+  else if(typeof scrip === 'number'){
+    return Math.round(scrip)
+  }
 }

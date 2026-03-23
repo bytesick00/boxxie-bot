@@ -1,11 +1,93 @@
-import { CommandInteraction, PermissionFlagsBits, SlashCommandBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
+import { CommandInteraction, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
 import{ fork } from 'node:child_process'
-import { AB_DATA } from '../initialize-data.js';
+import { cacheAllData } from '../utility/access_data.js';
+import { TextDisplayBuilder, ThumbnailBuilder, SectionBuilder, ContainerBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, SeparatorBuilder, SeparatorSpacingSize } from 'discord.js';
+
+const components = [
+        new ContainerBuilder()
+            .setAccentColor(11326574)
+            .addSectionComponents(
+                new SectionBuilder()
+                    .setThumbnailAccessory(
+                        new ThumbnailBuilder()
+                            .setURL("https://64.media.tumblr.com/4f5160222de5db25d0f4c1adc8877c6e/b8c9606df47e4fff-fc/s1280x1920/889020a9500cf7ee566904988a677381b23173cf.jpg")
+                    )
+                    .addTextDisplayComponents(
+                        new TextDisplayBuilder().setContent("## New Millennium Technologies Shop"),
+                        new TextDisplayBuilder().setContent("**Don't want to click through a menu?**\nUse **`/shop view [item]`** to quickly view an item\nUse **`/shop buy [item]`** to quickly buy it!"),
+                    ),
+            ),
+        new ContainerBuilder()
+            .setAccentColor(11326574)
+            .addActionRowComponents(
+                new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setStyle(ButtonStyle.Secondary)
+                            .setLabel("view")
+                            .setEmoji({
+                                name: "🔍",
+                            })
+                            .setCustomId("1a4c7606b4bd45458373ab9a9692b8f5"),
+                        new ButtonBuilder()
+                            .setStyle(ButtonStyle.Secondary)
+                            .setLabel("buy")
+                            .setEmoji({
+                                name: "💸",
+                            })
+                            .setCustomId("6009cef35b5845b7dd0d036b9972b340"),
+                    ),
+            )
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent("### :coin: `3902 scrip` | **NPC Slot**\n> *A slot for a recurring NPC. Please double check to make sure you need one! Not all NPCs need slots.*"),
+            )
+            .addActionRowComponents(
+                new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setStyle(ButtonStyle.Secondary)
+                            .setLabel("view")
+                            .setEmoji({
+                                name: "🔍",
+                            })
+                            .setCustomId("d1391264a1524ec59f11d09c5b45df9d"),
+                        new ButtonBuilder()
+                            .setStyle(ButtonStyle.Secondary)
+                            .setLabel("buy")
+                            .setEmoji({
+                                name: "💸",
+                            })
+                            .setCustomId("6f488a07d1b44674a6602858066569ed"),
+                    ),
+            )
+            .addSeparatorComponents(
+                new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(false),
+            )
+            .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent("Page 1 / 3"),
+            ),
+        new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setStyle(ButtonStyle.Secondary)
+                    .setLabel("Previous Page")
+                    .setCustomId("bc438775a41f4922adda47a9e496d758"),
+                new ButtonBuilder()
+                    .setStyle(ButtonStyle.Primary)
+                    .setLabel("Next Page")
+                    .setCustomId("35f74d75d9504f5a89807d161bde591c"),
+            ),
+];
+
+
 
 const registerSubcommand = new SlashCommandSubcommandBuilder()
     .setName('register')
     .setDescription('Register new commands')
 
+const testComp = new SlashCommandSubcommandBuilder()
+    .setName('test_comp')
+    .setDescription('just testing shit lol')
 
 /**
  * Description placeholder
@@ -15,10 +97,29 @@ const registerSubcommand = new SlashCommandSubcommandBuilder()
  */
 async function mainFunction(interaction) {
 
-    return await register(interaction);
+    const choice = interaction.options.getSubcommand()
+
+    switch (choice) {
+        case 'register':
+            
+            return await register(interaction);
+        
+        case 'test_comp':
+            
+            return await test_comp(interaction)
+
+        default:
+            break;
+    }
 
 }
 
+async function test_comp(interaction){
+   await interaction.reply({
+    components: components,
+	flags: MessageFlags.IsComponentsV2
+    })
+}
 
 /**
  * Description placeholder
@@ -29,7 +130,7 @@ async function mainFunction(interaction) {
  */
 async function register(interaction){
     await interaction.deferReply();
-    await AB_DATA.pullData();
+    await cacheAllData();
 
     //will try run the deploy-commands.js file
     let invoked = false;
@@ -70,7 +171,8 @@ const commandBuilder =
         .setName('mod')
         .setDescription('Mod-only commands')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-        .addSubcommand(registerSubcommand);
+        .addSubcommand(registerSubcommand)
+        .addSubcommand(testComp)
 
 
 export default{

@@ -1,15 +1,18 @@
 import { SlashCommandBuilder, EmbedBuilder, Embed, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder, MessageFlags, Message } from 'discord.js';
-import { AnomalyBoxData, Character } from '../utility/classes.js';
+// import { AnomalyBoxData, Character } from '../utility/classes.js';
 import { addStandardFormat, basicEmbed } from '../utility/format_embed.js';
-import { AB_DATA } from '../initialize-data.js';
+import { getTableData } from '../utility/access_data.js';
+import { Character } from '../utility/classes.js';
+// import { AB_DATA } from '../initialize-data.js';
+
 
 
 /**
  * Description placeholder
  *
- * @type {AnomalyBoxData}
+ * @param {Character} OC 
+ * @returns {Embed} 
  */
-
 function createProfileEmbed(OC){
     const embedMessage = new EmbedBuilder()
         .setTitle(OC.name)
@@ -100,7 +103,7 @@ function createProfileEmbed(OC){
             inline: true
         },
         )
-        .setThumbnail(OC.photoLink);
+        .setThumbnail(OC.image);
 
     if(OC.aka != ""){
         embedMessage
@@ -110,6 +113,13 @@ function createProfileEmbed(OC){
     return addStandardFormat(embedMessage);
 }
 
+
+/**
+ * Description placeholder
+ *
+ * @param {Character} OC 
+ * @returns {*} 
+ */
 function viewStats(OC){
     const embedMessage = new EmbedBuilder()
         .setTitle(OC.name)
@@ -155,16 +165,31 @@ function viewStats(OC){
             inline: false
         },
         )
-        .setThumbnail(OC.photoLink);
+        .setThumbnail(OC.image);
 
     return addStandardFormat(embedMessage);
 }
 
+
+/**
+ * Description placeholder
+ *
+ * @async
+ * @param {*} interaction 
+ * @param {Character} OC 
+ * @param {*} statName 
+ * @param {*} newValue 
+ * @param {*} origStat 
+ * @returns {*} 
+ */
 async function changeStat(interaction, OC, statName, newValue, origStat){
-    OC.currentStats.setProp(statName, newValue);
+    // OC.currentStats.setProp(statName, newValue);
+    // OC[statName]
+
+    await OC.currentStats.setStat(statName.toLowerCase(), newValue);
 
     let title;
-    let description = `**${statName}:** \`${origStat}\` ➡️ \`${OC[statName.toLowerCase()]}\`\n\n`;
+    let description = `**${statName}:** \`${origStat}\` ➡️ \`${OC.currentStats[statName.toLowerCase()]}\`\n\n`;
     if(newValue > origStat){
         title = "-# \`STAT UP ⏫\`"
         description = description + title + ` *yippee!* <a:mamegoma:1467091008704483500>`
@@ -178,7 +203,7 @@ async function changeStat(interaction, OC, statName, newValue, origStat){
         description = description + title +` *Must have been the wind...* <a:oiiacat:1467094624274350260>`
     }
 
-    const embedMessage = basicEmbed(OC.name, description, OC.photoLink);
+    const embedMessage = basicEmbed(OC.name, description, OC.image);
 
     await interaction.editReply({embeds: [embedMessage]});
 
@@ -224,12 +249,12 @@ const statCommandGroup =
                 .setName('stat')
                 .setDescription('The stat you want to change.')
                 .setChoices([
-                    {name: 'WIT', value:'WIT'},
-                    {name: 'CHA', value: 'CHA'},
-                    {name: 'STR', value: 'STR'},
-                    {name: 'MVE', value: 'MVE'},
-                    {name: 'DUR', value: 'DUR'},
-                    {name: 'LCK', value: 'LCK'}
+                    {name: 'WIT', value:'wit'},
+                    {name: 'CHA', value: 'cha'},
+                    {name: 'STR', value: 'str'},
+                    {name: 'MVE', value: 'mve'},
+                    {name: 'DUR', value: 'dur'},
+                    {name: 'LCK', value: 'lck'}
                 ])
                 .setRequired(true)
             )
@@ -271,7 +296,7 @@ export default{
         let characterInfo;
 
         try{
-            characterInfo = AB_DATA.getOC(characterChoice, true)
+            characterInfo = new Character(characterChoice);
         }
         catch{
             await interaction.editReply(`I couldn't find an OC named ${characterChoice} :( Please use the autocomplete to select your OC.`)
@@ -292,7 +317,7 @@ export default{
             else{
                 const chosenStat = interaction.options.getString('stat');
                 const newValue = interaction.options.getInteger('new-value');
-                const origValue = characterInfo[chosenStat.toLowerCase()];
+                const origValue = characterInfo.currentStats[chosenStat.toLowerCase()];
 
                 await changeStat(interaction, characterInfo, chosenStat, newValue, origValue)
             }
@@ -300,7 +325,8 @@ export default{
         
     },
     async autocomplete(interaction) {
-        let choices = AB_DATA.allOCNames;
+        let choices = getTableData('ocs')
+        choices = choices.map(row=> row.name)
 		const focusedValue = interaction.options.getFocused();
         let filtered = choices.filter((choice) => choice.toLowerCase().startsWith(focusedValue.toLowerCase()));
         if(filtered.length > 25){

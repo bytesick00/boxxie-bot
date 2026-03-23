@@ -6,3 +6,4 @@ test.js
 delete_command.js
 data/*
 trash.js
+nodemon.json
