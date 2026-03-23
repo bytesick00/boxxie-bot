@@ -2,6 +2,9 @@ import 'discord.js'
 import { Client, Collection, Events, GatewayIntentBits, MessageFlags } from 'discord.js'
 import 'dotenv/config';
 import { dynamicImport } from './dynamic-import.js';
+import { cacheAllData } from './utility/access_data.js';
+
+await cacheAllData(true);
 
 //#region Handle discord commands and events
 const client = new Client({

@@ -1,8 +1,10 @@
 import { SlashCommandBuilder, SlashCommandStringOption } from 'discord.js';
-import { AB_DATA } from '../initialize-data.js';
+// import { AB_DATA } from '../initialize-data.js';
 import { basicEmbed } from '../utility/format_embed.js';
+import { getData, getTableData } from '../utility/access_data.js';
 
-let allCommandOptions = AB_DATA.allCustomCommandOptions;
+const allCommands = await getTableData('customCommands')
+const commandOptions = allCommands.map(row=>row.name)
 
 let data = new SlashCommandBuilder()
     .setName('get')
@@ -13,8 +15,8 @@ const stringOption = new SlashCommandStringOption()
     .setDescription('What do you want to get?')
     .setRequired(true);
 
-for(const name of allCommandOptions){
-    stringOption.addChoices({name: name, value: name});
+for(const name of commandOptions){
+    stringOption.addChoices({name: name, value: name}); 
 }
 
 data.addStringOption(stringOption);
@@ -23,15 +25,15 @@ export default{
     data: data,
     async execute(interaction) {
 
-        const commandInfo = AB_DATA.getCustomCommand(interaction.options.getString('what'));
+        const commandInfo =  getData('customCommands', 'name', interaction.options.getString('what'))
 
-        if(commandInfo.getProp('Embed?')==="TRUE"){
+        if(commandInfo.embed==="TRUE"){
             const embedMessage = basicEmbed(
-            commandInfo.getProp('Title'), 
-            commandInfo.getProp('Description'),
-            commandInfo.getProp('Thumbnail'),
-            commandInfo.getProp('Image'),
-            commandInfo.getProp('Link')
+            commandInfo.title, 
+            commandInfo.description,
+            commandInfo.thumbnail,
+            commandInfo.image,
+            commandInfo.link
             )
 
             await interaction.reply(
@@ -41,7 +43,7 @@ export default{
             );
         }
         else{
-            const message = commandInfo.getProp('Title');
+            const message = commandInfo.title;
             await interaction.reply({
                 content: message});
         }

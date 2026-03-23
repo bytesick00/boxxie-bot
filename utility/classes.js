@@ -1,28 +1,32 @@
-import { pullInfo, appendToRange, updateRange, rowValueR1C1ToA1} from "../sheets.js";
+import {
+  pullInfo,
+  appendToRange,
+  updateRange,
+  rowValueR1C1ToA1,
+} from "../sheets.js";
+import { addData, getData, getFieldProperties, getTableData, updateData } from "./access_data.js";
+import { randOutOf } from "./utils.js";
 
 /**
  * Holds data as an array of DataRow objects, in the form {header1: value1, header2: value2, ...}
- *
  * @class DataTable
  * @typedef {DataTable}
- */
-export class DataTable{
+ **/
+export class DataTable {
   /**
-   * Creates an instance of DataTable.
+   * Creates an instance of DataTable. A DataTable holds an array of DataRow objects, in the form {property1: value, property2: value, etc...}
    *
    * @constructor
-   * @param {string} name The name of the table 
+   * @param {string} name The name of the table
    * @param {DataRow[]} dataRowArray An array holding all of the DataRow objects of the table
    * @param {SheetTable} parentSheetTable The parent SheetTable that this formatted table represents
    */
-  constructor(name, dataRowArray, parentSheetTable){
+  constructor(name, dataRowArray, parentSheetTable) {
     this.name = name;
-    this.parentSheetTable = parentSheetTable
-    
+    this.parentSheetTable = parentSheetTable;
+
     let rows = [];
-    dataRowArray.forEach(row=>(
-      rows.push(new DataRow(row, this))
-    ));
+    dataRowArray.forEach((row) => rows.push(new DataRow(row, this)));
 
     this.dataRows = rows;
   }
@@ -32,65 +36,77 @@ export class DataTable{
    *
    * @type {DataRow}
    */
-  set addRow(dataRow){
+  set addRow(dataRow) {
     this.parentSheetTable.appendRow(dataRow.values());
   }
 
-  async pullData(){
-    const newSheetTable = await SheetTable.init(this.name, this.parentSheetTable.sheetName, this.parentSheetTable.rangeA1);
+  
+  /**
+   * Pulls all new data from the spreadsheet and pushes to current DataTable 
+   *
+   * @async
+   * @returns {DataTable} 
+   */
+  async pullData() {
+    const newSheetTable = await SheetTable.init(
+      this.name,
+      this.parentSheetTable.sheetName,
+      this.parentSheetTable.rangeA1,
+    );
     this.dataRows = newSheetTable.getDataTable();
     this.parentSheetTable = newSheetTable;
 
     return this;
   }
 
-  
   /**
-   * Gets a DataRow from the table
+   * Gets a DataRow from the table, e.x. one OC's properties
    *
-   * @param {string} searchTerm 
-   * @param {string} searchColumnName 
-   * @param {boolean} [fuzzy=false] Search for a substring instead of exact string value. Defaults to false. 
-   * @returns {DataRow} 
+   * @param {string} searchTerm
+   * @param {string} searchColumnName
+   * @param {boolean} [fuzzy=false] Search for a substring instead of exact string value. Defaults to false.
+   * @returns {DataRow}
    */
-  getRow(searchTerm, searchColumnName, fuzzy = false){
-
-    try{
-      for(const dataRow of this.dataRows){
+  getRow(searchTerm, searchColumnName, fuzzy = false) {
+    try {
+      for (const dataRow of this.dataRows) {
         let value = dataRow.dataObject[searchColumnName];
-        if(fuzzy){
-          if(value.includes(searchTerm)){
+        if (fuzzy) {
+          if (value.includes(searchTerm)) {
             return dataRow;
           }
-        } 
-        else{
-          if(value == searchTerm){
+        } else {
+          if (value == searchTerm) {
+            return dataRow;
+          }
+        }
+      }
+    } catch {
+      for (const dataRow of this.dataRows.dataRows) {
+        let value = dataRow.dataObject[searchColumnName];
+        if (fuzzy) {
+          if (value.includes(searchTerm)) {
+            return dataRow;
+          }
+        } else {
+          if (value === searchTerm) {
             return dataRow;
           }
         }
       }
     }
-    catch {
-      for(const dataRow of this.dataRows.dataRows){
-        let value = dataRow.dataObject[searchColumnName];
-        if(fuzzy){
-          if(value.includes(searchTerm)){
-            return dataRow;
-          }
-        } 
-        else{
-          if(value === searchTerm){
-            return dataRow;
-          }
-        }
-      }
-    }
-    
   }
-
 }
 
-export class DataRow{
+
+/**
+ * A DataRow is an object holding one spreadsheet row's worth of data in the form {columnTitle: value, etc...}
+ *
+ * @export
+ * @class DataRow
+ * @typedef {DataRow}
+ */
+export class DataRow {
   /**
    * Creates an instance of DataRow.
    *
@@ -98,12 +114,12 @@ export class DataRow{
    * @param {Object} dataObject The object containing all of the row values
    * @param {DataTable} parentDataTable The DataTable that contains this row
    */
-  constructor(dataObject, parentDataTable){
+  constructor(dataObject, parentDataTable) {
     this.dataObject = dataObject;
     this.parentDataTable = parentDataTable;
   }
 
-  get parentSheetTable(){
+  get parentSheetTable() {
     return this.parentDataTable.parentSheetTable;
   }
 
@@ -112,503 +128,462 @@ export class DataRow{
    *
    * @type {(string|number)}
    */
-  setProp(indexValue, indexProperty, changeProperty, newValue){
-
-    this.parentSheetTable.updateValue(indexValue, indexProperty, changeProperty, newValue);
+  setProp(indexValue, indexProperty, changeProperty, newValue) {
+    this.parentSheetTable.updateValue(
+      indexValue,
+      indexProperty,
+      changeProperty,
+      newValue,
+    );
 
     this.dataObject[changeProperty] = newValue;
   }
 
-  getProp(propertyName){
+  getProp(propertyName) {
     return this.dataObject[propertyName];
   }
 
-  async pullData(){
+  async pullData() {
     const newDataTable = await this.parentDataTable.pullData();
     this.dataObject = newDataTable[this.name];
     this.parentDataTable = newDataTable;
 
     return this;
   }
-
 }
 
 /**
- * Holds all of the data for the server
- * 
- * @class AnomalyBoxData
- * @typedef {AnomalyBoxData}
- * @property {DataTable} AnomalyBoxData.munInfo - Mun information
- * @property {DataTable} AnomalyBoxData.ocInfo - OC information
- * 
- */
-export class AnomalyBoxData {
-   
-    /**
-     * Creates an instance of AnomalyBoxData.
-     *
-     * @constructor
-     * @param {[DataTable, DataTable, DataTable, DataTable, DataTable, DataTable, DataTable, DataTable]} _dataTables 
-     * @param {DataTable} _dataTables.munInfo 
-     * @param {DataTable} _dataTables.ocInfo 
-     * @param {DataTable} _dataTables.baseStats 
-     * @param {DataTable} _dataTables.allItems 
-     * @param {DataTable} _dataTables.currentStats 
-     * @param {DataTable} _dataTables.inventoryRows 
-     * @param {DataTable} _dataTables.mechanics 
-     * @param {DataTable} _dataTables.flavorText 
-     */
-    constructor([munInfo, ocInfo, baseStats, allItems, currentStats, inventoryRows, mechanics, flavorText, customCommands]){
-        this.munInfo = munInfo;
-        this.ocInfo = ocInfo;
-        this.baseStats = baseStats;
-        this.allItems = allItems;
-        this.currentStats = currentStats;
-        this.inventoryRows = inventoryRows;
-        this.mechanics = mechanics;
-        this.flavorText = flavorText;
-        this.customCommands = customCommands;
-    }
-
-    static async init(sheetRanges){
-      const output = [];
-      let thisTable;
-      for(const table of sheetRanges){
-          thisTable = await SheetTable.init(table.sheet, table.sheet, table.range);
-          output.push(thisTable.getDataTable());
-      }
-
-      return new AnomalyBoxData(output);
-    }
-
-    get dataTables(){
-      return [this.munInfo, this.ocInfo, this.baseStats, this.allItems, this.currentStats, this.inventoryRows, this.mechanics, this.flavorText, this.customCommands];
-    }
-    /**
-     * Gets the OC as a Character object
-     *
-     * @param {string} name 
-     * @param {boolean} [fuzzy=false] 
-     * @returns {Character} 
-     */
-    getOC(name, fuzzy = false){
-
-      const thisOCRow = this.ocInfo.dataRows.getRow(name, "Full Name", fuzzy);
-      const thisBaseStatsRow = this.baseStats.dataRows.getRow(name, "Name", fuzzy);
-      const thisCurrentStatsRow = this.currentStats.getRow(name, "Name", fuzzy);
-
-      const character = new Character(thisOCRow, thisBaseStatsRow, thisCurrentStatsRow);
-      return character
-    }
-
-    get allOCNames(){
-      const ocNames = [];
-      const ocData = this.ocInfo.dataRows;
-
-      try{
-        ocData.forEach((row)=>{
-        ocNames.push(row.getProp("Full Name"))
-      });
-      }
-      catch{
-        ocData.dataRows.forEach((row)=>{
-        ocNames.push(row.getProp("Full Name"))
-      });
-      }
-
-      return ocNames;
-    }
-
-    async pullData(){
-      try {
-        this.dataTables.forEach(async (dataTable)=>{
-          dataTable = await dataTable.pullData();
-        })
-        return true;
-      } catch (error) {
-        console.debug(error)
-        return false;
-      }
-    }
-
-    getFlavorText(text_id){
-      for(const row of this.flavorText.dataRows){
-        if(row.getProp("Text ID") === text_id){ 
-          return row.getProp("Flavor Text");
-        }
-      }
-    }
-
-    get allCustomCommandOptions(){
-      let commands = [];
-      for(const row of this.customCommands.dataRows){
-        commands.push(row.getProp("Option Name"));
-      }
-
-      return commands;
-    }
-
-    getCustomCommand(optionName){
-      return this.customCommands.getRow(optionName, "Option Name");
-    }
-
-}
-
-/**
- * SheetTables represent tables of information from the database spreadsheet. 
- * @param {string} name - Name of table
- * @param {string} sheetName - Sheet name where table resides
- * @param {string} rangeA1 - Range, in A1 format, of the table
- * @param {string[]} columnNames - Array of the column names/headers
- * @param {string[]} rowValues - Array of the data rows' (no headers) values
+ * SheetTables represent tables of information from the database spreadsheet.
+ * @property {string} SheetTable.name - Name of table
+ * @property {string} SheetTable.sheetName - Sheet name where table resides
+ * @property {string} SheetTable.rangeA1 - Range, in A1 format, of the table
+ * @property {string[]} SheetTable.columnNames - Array of the column names/headers
+ * @property {string[]} SheetTable.rowValues - Array of the data rows' (no headers) values
+ * @param
  * @class SheetTable
  * @typedef {SheetTable}
- */
+ **/
 export class SheetTable {
-  constructor(name, sheetName, rangeA1, columnNames, rowValues){
+  /**
+   * Creates an instance of SheetTable.
+   *
+   * @constructor
+   * @param {string} name - Name of table
+   * @param {string} sheetName - Sheet name where table resides
+   * @param {string} rangeA1 - Range, in A1 format, of the table
+   * @param {string[]} columnNames - Array of the column names/headers
+   * @param {string[]} rowValues - Array of the data rows' (no headers) values
+   */
+  constructor(name, sheetName, rangeA1, columnNames, rowValues) {
     this.name = name;
     this.sheetName = sheetName;
     this.rangeA1 = rangeA1;
     this.columnNames = columnNames;
-    this.rowValues = rowValues; 
+    this.rowValues = rowValues;
   }
 
-  static async init(name, sheetName, rangeA1){
+  static async init(name, sheetName, rangeA1) {
     //pulls data from sheet
     const rangeData = await pullInfo(sheetName, rangeA1);
     //separates into the column names and the value rows
     let columnNames = [];
     let rowValues = [];
     let firstRow = true;
-    rangeData.forEach((row)=>{
-        if(firstRow){
-            columnNames = row;
-            firstRow = false;
-        }
-        else{
-            rowValues.push(row);
-        }
-        }
-    )
+    rangeData.forEach((row) => {
+      if (firstRow) {
+        columnNames = row;
+        firstRow = false;
+      } else {
+        rowValues.push(row);
+      }
+    });
 
     return new SheetTable(name, sheetName, rangeA1, columnNames, rowValues);
   }
 
-  getDataTable(){ 
+  getDataTable() {
     // outputs an array of objects in format {columnHeader: value}, i.e. {Name: 'Heather', Pronouns: 'day'}
     // essentially creates a DataTable
-    const paired =
-        this.columnNames.map((col, colIndex)=>(
-            this.rowValues.map((row)=>(
-                    {[col]:row[colIndex]}
-                ))
-        ));
+    const paired = this.columnNames.map((col, colIndex) =>
+      this.rowValues.map((row) => ({ [col]: row[colIndex] })),
+    );
 
     const dataRowArray = [];
     const numDataRows = paired[0].length;
 
-    for(let ocIndex = 0; ocIndex < numDataRows; ocIndex++){
-        dataRowArray.push(
-            paired.map((category)=>(
-                category[ocIndex]
-            )
-        ))
+    for (let ocIndex = 0; ocIndex < numDataRows; ocIndex++) {
+      dataRowArray.push(paired.map((category) => category[ocIndex]));
     }
 
     const dataRowObjects = [];
 
-    dataRowArray.forEach((dataRow)=>{
-        dataRowObjects.push(dataRow.reduce(function(result, currentObject) {
-            for(let key in currentObject) {
-                if (currentObject.hasOwnProperty(key)) {
-                    result[key] = currentObject[key];
-                }
+    dataRowArray.forEach((dataRow) => {
+      dataRowObjects.push(
+        dataRow.reduce(function (result, currentObject) {
+          for (let key in currentObject) {
+            if (currentObject.hasOwnProperty(key)) {
+              result[key] = currentObject[key];
             }
-            return result
-        }, {}))
+          }
+          return result;
+        }, {}),
+      );
     });
 
     return new DataTable(this.name, dataRowObjects, this);
   }
 
-  getColumnIndex(columnName){
+  getColumnIndex(columnName) {
     return this.columnNames.indexOf(columnName);
   }
 
-  getRow(searchTerm, columnName){
+  getRow(searchTerm, columnName) {
     let info = [];
     const columnIndex = this.getColumnIndex(columnName);
-    this.rowValues.forEach((row)=>{
-      if(row[columnIndex] == searchTerm){
+    this.rowValues.forEach((row) => {
+      if (row[columnIndex] == searchTerm) {
         info = row;
       }
     });
 
-    if(info == null){
+    if (info == null) {
       throw new Error(`Could not find ${searchTerm} in column '${columnName}'`);
-    }
-    else{
+    } else {
       return info;
     }
   }
 
-  lookupValue(searchTerm, searchColumnName, returnColumnName){
-    try{
+  lookupValue(searchTerm, searchColumnName, returnColumnName) {
+    try {
       const row = this.getRow(searchTerm, searchColumnName);
       const columnIndex = this.getColumnIndex(returnColumnName);
 
       return row[columnIndex];
-    }
-    catch{
-      throw new Error(`Error searching for '${searchTerm}' in ${this.name} SheetTable`);
+    } catch {
+      throw new Error(
+        `Error searching for '${searchTerm}' in ${this.name} SheetTable`,
+      );
     }
   }
 
-  lookupCellAddress(searchTerm, searchColumnName, returnColumnName){
-    try{
+  lookupCellAddress(searchTerm, searchColumnName, returnColumnName) {
+    try {
       const row = this.getRow(searchTerm, searchColumnName);
       const rowIndex = this.rowValues.indexOf(row);
       const columnIndex = this.getColumnIndex(returnColumnName);
 
       return rowValueR1C1ToA1(rowIndex, columnIndex);
-    }
-    catch{
-      throw new Error(`Error getting cell address for '${searchTerm}' in ${this.name} SheetTable`);
+    } catch {
+      throw new Error(
+        `Error getting cell address for '${searchTerm}' in ${this.name} SheetTable`,
+      );
     }
   }
 
-  updateValue(searchRowTerm, searchColumnName, changeColumnName, newValue){
+  updateValue(searchRowTerm, searchColumnName, changeColumnName, newValue) {
     //gets row of the desired cell
-    const updateRangeA1 = this.lookupCellAddress(searchRowTerm, searchColumnName, changeColumnName);
+    const updateRangeA1 = this.lookupCellAddress(
+      searchRowTerm,
+      searchColumnName,
+      changeColumnName,
+    );
 
     //updates the sheet
     updateRange(this.sheetName, updateRangeA1, newValue);
-
   }
 
-  appendRow(rowValueArray){
+  appendRow(rowValueArray) {
     //adds row to the sheet
     appendToRange(this.sheetName, this.rangeA1, rowValueArray);
   }
-
 }
 
 /**
- * Represents a Character
+ * Represents a cached data table, handles all functions needed to push/pull data from spreadsheet to the cached-data.json file
  *
- * @export
- * @class Character
- * @typedef {Character}
- * @extends {DataRow}
- */
-export class Character extends DataRow{
+ * @param {string} data - The data object for this cached table
+ * @class DBTable
+ * @typedef {DBTable}
+ **/
+export class DBTable {
   
-  constructor(ocDataRow, baseStatsRow, currentStatsRow){
-    super(ocDataRow, ocDataRow.parentDataTable);
-
-    this.baseStats = new BaseStats(baseStatsRow, this.name);
-    this.currentStats = new CurrentStats(currentStatsRow, this.name);
-  }
-  
-  //#region Getters
-  get name(){
-     return this.dataObject.getProp('Full Name')
-    }
-  get aka(){
-     return this.dataObject.getProp("AKA")
-    }
-  get mun(){
-     return this.dataObject.getProp('Mun')
-    }
-  get age(){
-     return this.dataObject.getProp('Age')
-    }
-  get gender(){
-     return this.dataObject.getProp("Gender")
-    }
-  get pronouns(){
-     return this.dataObject.getProp("Pronouns")
-    }
-  get height(){
-     return this.dataObject.getProp("Height")
-    }
-  get birthday(){
-     return this.dataObject.getProp("Birthday")
-    }
-  get bloodType(){
-     return this.dataObject.getProp("Blood Type")
-    }
-  get photoLink(){
-     return this.dataObject.getProp("Photo Link")
-    }
-
-  get wit(){
-    return this.currentStats.wit;
-  }
-  get cha(){
-    return this.currentStats.cha
-  }
-  get str(){
-    return this.currentStats.str
-  }
-  get mve(){
-    return this.currentStats.mve
-  }
-  get dur(){
-    return this.currentStats.dur
-  }
-  get lck(){
-    return this.currentStats.lck
-  }
-  get reprints(){
-    return this.currentStats.reprints
-  }
-  //#endregion
-
-  set wit(num){
-    this.currentStats.setProp("WIT", num)
-  }
-  set cha(num){
-    this.currentStats.setProp('CHA', num);
-  }
-  set str(num){
-    this.currentStats.setProp('STR', num);
-  }
-  set mve(num){
-    this.currentStats.setProp('MVE', num);
-  }
-  set dur(num){
-    this.currentStats.setProp('DUR', num);
-  }
-  set lck(num){
-    this.currentStats.setProp('LCK', num);
-  }
-  set reprints(num){
-    this.currentStats.setProp('Reprints', num);
+  /**
+   * Creates an instance of DBTable.
+   *
+   * @constructor
+   * @param {string} field 
+   * @param {string} indexProperty 
+   * @param {string} indexValue 
+   */
+  constructor(field, indexProperty, indexValue) {
+    const data = getData(field, indexProperty, indexValue);
+    this.data = data;
+    this.indexInfo = {tableField: field, indexProperty: indexProperty, indexValue: indexValue}
   }
 
-  reprint(){
-    const error = Math.random() < 0.05; //5% chance of error
-    // const error = true; //5% chance of error
-    this.currentStats.reset(this.baseStats);
-    this.currentStats.addReprint();
-    
+  async changeProperty(property, newValue){
+    await updateData(this.indexInfo.tableField, this.indexInfo.indexProperty, this.indexInfo.indexValue, property, newValue)
+  }
+}
+
+export class Character extends DBTable {
+  constructor(name) {
+    super("ocs", "name", name);
+
+    this.name = this.data.name;
+    this.aka = this.data.aka;
+    this.mun = this.data.mun;
+    this.age = this.data.age;
+    this.gender = this.data.gender;
+    this.pronouns = this.data.pronouns;
+    this.birthday = this.data.birthday;
+    this.bloodType = this.data.bloodType;
+    this.image = this.data.image;
+    this.height = this.data.height;
+    this.baseStats = new baseStats(this.name);
+
+  }
+
+  get currentStats(){
+    return new currentStats(this.name)
+  }
+
+  async reprint(){
+    const currentReprints = parseInt(this.currentStats.reprints);
+    await this.currentStats.setStat('reprints', currentReprints+1)
+    const error =  Math.random() < 0.05;
+    await this.currentStats.setStat('error', error)
     return error;
   }
 }
 
+export class baseStats extends DBTable {
+  constructor(ocName){
+    super('currentStats', 'name', ocName)
+    this.name = this.data.name;
+    this.wit = this.data.wit;
+    this.cha = this.data.cha;
+    this.str = this.data.str;
+    this.mve = this.data.mve;
+    this.dur = this.data.dur;
+    this.lck = this.data.lck;
+  }
+}
 
-/**
- * Basestats
- *
- * @class BaseStats
- * @typedef {BaseStats}
- * @extends {DataRow}
- */
-class BaseStats extends DataRow{
-  constructor(statsRow, ocName){
-    super(statsRow, statsRow.parentDataTable)
-    this.name = ocName;
+export class currentStats extends DBTable {
+  constructor(ocName){
+    super('currentStats', 'name', ocName)
+    this.name = this.data.name;
+    this.wit = this.data.wit;
+    this.cha = this.data.cha;
+    this.str = this.data.str;
+    this.mve = this.data.mve;
+    this.dur = this.data.dur;
+    this.lck = this.data.lck;    
+    this.reprints = this.data.reprints;
+    this.error = this.data.error;
   }
 
-  //#region getters
-  get wit(){
-    return this.dataObject.getProp("WIT")
+  async setStat(statName, newValue){
+    await super.changeProperty(statName, newValue);
   }
-  get cha(){
-    return this.dataObject.getProp("CHA")
-  }
-  get str(){
-    return this.dataObject.getProp("STR")
-  }
-  get mve(){
-    return this.dataObject.getProp("MVE")
-  }
-  get dur(){
-    return this.dataObject.getProp("DUR")
-  }
-  get lck(){
-    return this.dataObject.getProp("LCK")
-  }
-  //#endregion
 
 }
 
+export class Item extends DBTable {
+  constructor(itemName){
+    super('shop', 'name', itemName)
+    this.name = this.data.name;
+    this.type = this.data.type;
+    this.giftable = this.data.giftable;
+    this.description = this.data.description;
+    this.useText = this.data.useText;
+    this.shop = this.data.shop;
+    this.id = this.data.id;
+    this.image = this.data.image;
+    this.buyPrice = sanitizeScrip(this.data.buyPrice);
+    this.sellPrice = sanitizeScrip(this.data.sellPrice);
+  }
+
+}
 
 /**
- * current stats
+ * Description placeholder
  *
- * @class CurrentStats
- * @typedef {CurrentStats}
- * @extends {BaseStats}
+ * @export
+ * @class Mun
+ * @typedef {Mun}
+ * @extends {DBTable}
  */
-class CurrentStats extends BaseStats{
-  constructor(statsRow, ocName){
-    super(statsRow, ocName)
+export class Mun extends DBTable {
+  constructor(name){
+    super('muns', 'name', name)
+    this.name = this.data.name;
+    this.pronouns = this.data.pronouns;
+    this.timezone = this.data.timezone;
+    this.scrip = sanitizeScrip(this.data.scrip);
+    this.id = this.data.id;
+    this.status = this.data.status;
+    this.ocs = this.data.ocs;
   }
 
-  //#region getters
-  get wit(){
-    return this.dataObject.getProp("WIT")
-  }
-  get cha(){
-    return this.dataObject.getProp("CHA")
-  }
-  get str(){
-    return this.dataObject.getProp("STR")
-  }
-  get mve(){
-    return this.dataObject.getProp("MVE")
-  }
-  get dur(){
-    return this.dataObject.getProp("DUR")
-  }
-  get lck(){
-    return this.dataObject.getProp("LCK")
-  }
-  get reprints(){
-    return this.dataObject.getProp("Reprints")
-  }
-  //#endregion
-
-  setProp(property, num){
-    this.dataObject.setProp(this.name, "Name", property, num)
-  }
-  //#region setters
-  set wit(num){
-    this.setProp("WIT", num)
-  }
-  set cha(num){
-    this.setProp('CHA', num);
-  }
-  set str(num){
-    this.setProp('STR', num);
-  }
-  set mve(num){
-    this.setProp('MVE', num);
-  }
-  set dur(num){
-    this.setProp('DUR', num);
-  }
-  set lck(num){
-    this.setProp('LCK', num);
-  }
-  set reprints(num){
-    this.setProp('Reprints', num);
-  }
-  //#endregion
-
-  addReprint(num = 1){
-    this.setProp('Reprints', parseInt(this.reprints) + num);
+  get inventory(){
+    return (async () => {
+        return await Inventory.init(this);
+    })();
   }
 
-  reset(baseStats){
-    this.wit = baseStats.wit;
-    this.cha = baseStats.cha;
-    this.str = baseStats.str;
-    this.mve = baseStats.mve;
-    this.dur = baseStats.dur;
-    this.lck = baseStats.lck;
+  async setScrip(setAmount){
+    this.scrip = setAmount
+    await super.changeProperty('scrip', this.scrip)
   }
 
+  async addScrip(addAmount){
+    const add = sanitizeScrip(addAmount)
+    const currentScrip = this.scrip;
+    this.scrip = currentScrip + add
+    await super.changeProperty('scrip', this.scrip)
+  }
+
+  async removeScrip(removeAmount){
+    const currentScrip = this.scrip;
+    const remove = sanitizeScrip(removeAmount)
+
+    if(removeAmount > currentScrip){
+      throw new Error("Not enough scrip!");
+    }
+
+    this.scrip = currentScrip - remove
+    await super.changeProperty('scrip', this.scrip)
+  }
+
+}
+
+export class Inventory{
+  constructor(mun){
+    this.mun = mun
+  }
+
+  async buyItem(itemName, quantity){
+    const thisItem = new Item(itemName);
+    //remove scrip
+    try{
+      if(quantity > 0){
+        await this.mun.removeScrip(thisItem.buyPrice*quantity);
+      }
+      
+    }
+    catch (error){
+      throw error;
+    }
+    
+    const currentDate = new Date();
+    const newRowData = {'id': this.mun.id, 'name': this.mun.name, 'item': thisItem.name, 'amount': quantity, 'date': currentDate.toUTCString()};
+    await addData('inventory', newRowData).then(()=>{return true})
+    
+    await this.refresh();
+    
+  }
+
+  async refresh(){
+    const refreshed = await Inventory.init(this.mun)
+    this.items = refreshed.items
+  }
+
+  getItemQuantity(itemName){
+    return this.items.find(item=>item.item===itemName).quantity;
+  }
+
+  
+  /**
+   * get an inventory item as an Item object
+   *
+   * @param {string} itemName 
+   * @returns {(Item | "Not in inventory!")} 
+   */
+  getItem(itemName){
+    
+    if(this.checkInventory(itemName)){
+      return new Item(itemName)
+    }
+    return 'Not in inventory!'
+  }
+
+  async useItem(itemName){
+    /**
+     * @type {Item}
+     */
+    const item = this.getItem(itemName)
+    const useType = item.type
+
+    if(useType === 'Usable'){
+      return {text:item.useText, consumed: false}
+    }
+    else{
+      await this.buyItem(item.name, -1)
+      return {text: item.useText, consumed: true}
+    }
+  }
+
+  checkInventory(itemName){
+
+    const itemNames = this.getAllItemNames();
+    if(itemNames.includes(itemName)){
+      return true
+    }
+    return false
+  }
+
+  static async init(mun){
+    const allRows = (getTableData('inventory')).filter(table => table.id === mun.id);
+    const inventory = []
+    let itemsArray = allRows.map(out => out.item)
+    let itemSet = new Set(itemsArray)
+    itemsArray = [...itemSet]
+
+    for(const item of itemsArray){
+        // console.log(item)
+
+        let filteredRows = allRows.filter(row => row.item === item).map(row=> parseInt(row.amount));
+        let quantity = filteredRows.reduce((total, currentNum)=>total + currentNum)
+
+        if(quantity > 0){
+          inventory.push({item: item, quantity: quantity})
+        }
+      }
+    
+    const newInv = new Inventory(mun)
+    newInv.items = inventory;
+    return newInv
+  }
+
+  getAllItemNames(){
+    return this.items.map(item=> item.item)
+  }
+
+}
+
+// MISC FUNCTIONS
+export function getFlavorText(textID){
+    return getData('flavorText', 'id', textID)
+}
+export function getAllItemNames(shopType){
+  const itemRows = getTableData('shop')
+  if(shopType === null){
+    return itemRows.map(row=> row.name)
+  }
+  else{
+    return itemRows.filter(row=>row.shop === shopType).map(row=> row.name)
+  }
+  
+}
+
+function sanitizeScrip(scrip){
+  if(typeof scrip === 'string'){
+    const output = scrip.replaceAll(',','').replace('scrip', '').trim();
+    return parseInt(output)
+  }
+  else if(typeof scrip === 'number'){
+    return Math.round(scrip)
+  }
 }

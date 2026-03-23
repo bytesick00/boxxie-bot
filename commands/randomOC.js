@@ -1,6 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, Client } from 'discord.js';
-import { AB_DATA } from '../initialize-data.js';
+// import { AB_DATA } from '../initialize-data.js';
 import { addStandardFormat } from '../utility/format_embed.js';
+import { getTableData } from '../utility/access_data.js';
+import { Character } from '../utility/classes.js';
 
 export default{
     data: new SlashCommandBuilder()
@@ -25,10 +27,11 @@ export default{
 
         const choice = interaction.options.getString('pick');
         
-        let characterNames = AB_DATA.allOCNames;
+        let characterNames = getTableData('ocs')
+        characterNames = characterNames.map(row=>row.name);
         const ocNamesLength = characterNames.length; 
         const randomNumber = Math.round(Math.random() * ocNamesLength);
-        const character = AB_DATA.getOC(characterNames[randomNumber]);
+        const character = new Character(characterNames[randomNumber]);
 
         let embedMessage;
         if(choice==='oc'){
@@ -38,8 +41,9 @@ export default{
             .setThumbnail(character.photoLink)
  
         }else{
-            const secondNumber = Math.round(Math.random() * ocNamesLength);
-            const character2 = AB_DATA.getOC(characterNames[secondNumber]);
+            let secondNumber = Math.round(Math.random() * ocNamesLength);
+            if(secondNumber === randomNumber){secondNumber += 1}
+            const character2 = new Character(characterNames[secondNumber]);
 
             embedMessage = new EmbedBuilder()
             .setTitle('🎲 Pick Random OC Pairing <:shouldergrab:1462601546993762458>')

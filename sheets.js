@@ -56,16 +56,13 @@ export function updateRange(sheetName, rangeA1, newValue){
 
 export function appendToRange(sheetName, rangeA1, rowValueArray){
   const resource = {
-    values: [
-      rowValueArray
-    ]
+    values: [rowValueArray]
   };
 
   const result = sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: `'${sheetName}'!${rangeA1}`,
     valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROW",
     resource: resource
   })
 

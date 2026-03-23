@@ -1,12 +1,15 @@
 import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { TextDisplayBuilder, ThumbnailBuilder, SectionBuilder, ContainerBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { AB_DATA } from '../initialize-data.js';
+import { Character, getFlavorText } from '../utility/classes.js';
+import { getTableData } from '../utility/access_data.js';
+// import { AB_DATA } from '../initialize-data.js';
 
-let compMessage = AB_DATA.getFlavorText("Reprint_Warning");
-let compPrintError = AB_DATA.getFlavorText("Reprint_Error")
-let ocName;
+// let compMessage = AB_DATA.getFlavorText("Reprint_Warning");
 
-await AB_DATA.pullData();
+// let compPrintError = AB_DATA.getFlavorText("Reprint_Error")
+// let ocName;
+
+// await AB_DATA.pullData();
 
 const cancelComponent = [
     new ContainerBuilder()
@@ -16,8 +19,9 @@ const cancelComponent = [
         ),
 ];
 
-function setComponent(){
-
+function setComponent(ocName){
+    let compMessage = getFlavorText('Reprint_Warning')
+    let compPrintError = getFlavorText('Reprint_Error')
     compMessage = compMessage.replace("[OC_NAME]", ocName);
     compPrintError = compPrintError.replace("[OC_NAME]", ocName)
  
@@ -62,7 +66,7 @@ function setComponent(){
 }
 
 async function reprintMessage(interaction){
-    ocName = interaction.options.getString("oc");
+    const ocName = interaction.options.getString("oc");
     const response = await interaction.reply({
         components: setComponent(ocName),
         flags: [ 
@@ -97,8 +101,8 @@ async function reprintMessage(interaction){
         const confirmation = await response.resource.message.awaitMessageComponent({ filter: collectorFilter, time: 60_000 });
 
         if (confirmation.customId === 'confirm') {
-            const characterObject = AB_DATA.getOC(ocName, false);
-            const error = characterObject.reprint()
+            const characterObject = new Character(ocName)
+            const error = await characterObject.reprint()
 
             if(error){
                 interaction.editReply({
@@ -136,7 +140,7 @@ export default{
         await reprintMessage(interaction);
     },
     async autocomplete(interaction) {
-		let choices = AB_DATA.allOCNames;
+		let choices = getTableData('ocs').map(row=> row.name);
 		const focusedValue = interaction.options.getFocused();
         let filtered = choices.filter((choice) => choice.toLowerCase().startsWith(focusedValue.toLowerCase()));
         if(filtered.length > 25){

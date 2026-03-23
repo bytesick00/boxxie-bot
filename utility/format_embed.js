@@ -15,7 +15,7 @@ export function addStandardFormat(embedBuilder){
     return embedBuilder;
 }
 
-export function basicEmbed(title="", description="", thumbnail="", image = "", link = ""){
+export function basicEmbed(title="", description="", thumbnail="", image = "", link = "", format = true){
     let embedMessage = new EmbedBuilder();
     
     if(title!=""){
@@ -34,7 +34,7 @@ export function basicEmbed(title="", description="", thumbnail="", image = "", l
         embedMessage.setURL(link);
     }
     
-    embedMessage = addStandardFormat(embedMessage);
+    if(format){embedMessage = addStandardFormat(embedMessage)};
 
     return embedMessage;
 }

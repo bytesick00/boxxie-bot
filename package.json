@@ -24,7 +24,8 @@
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "g": "^2.0.1",
-    "googleapis": "^105.0.0"
+    "googleapis": "^105.0.0",
+    "lowdb": "^7.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"
