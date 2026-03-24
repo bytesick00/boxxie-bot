@@ -349,9 +349,16 @@ export class Character extends DBTable {
   }
 
   async reprint(){
+    //Resets stats
+    const stats = ['wit', 'cha', 'str','mve','dur','lck'];
+    for(const stat of stats){
+      const baseStat = parseInt(this.baseStats[stat])
+      await this.currentStats.setStat(stat, baseStat)
+    }
+
     const currentReprints = parseInt(this.currentStats.reprints);
     await this.currentStats.setStat('reprints', currentReprints+1)
-    const error =  Math.random() < 0.05;
+    const error =  Math.random() <= 0.25;
     await this.currentStats.setStat('error', error)
     return error;
   }
