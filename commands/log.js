@@ -12,6 +12,11 @@ const commandBuilder = new SlashCommandBuilder()
                 .setDescription('The word count for your mission')
                 .setRequired(true)
         )
+        .addUserOption((option)=>
+            option
+                .setName('user')
+                .setDescription('The user to submit for. Defaults to you.')
+        )
 
 async function mainFunction(interaction){
 
@@ -20,10 +25,13 @@ async function mainFunction(interaction){
     let payout = parseFloat(wordPayout.rate) * parseInt(wordCount);
     payout = Math.round(payout);
 
-    const userID = interaction.user.id;
+    let userOption = interaction.options.getUser('user');
+    if(userOption === null){
+        userOption = interaction.user
+    }
 
     const allMuns = await getTableData('muns')
-    const munName = allMuns.find(row=>row.id === userID).name
+    const munName = allMuns.find(row=>row.id === userOption.id).name
     const thisMun = new Mun(munName);
     await thisMun.addScrip(payout)
 

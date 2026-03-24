@@ -30,7 +30,7 @@ export default{
         let characterNames = getTableData('ocs')
         characterNames = characterNames.map(row=>row.name);
         const ocNamesLength = characterNames.length; 
-        const randomNumber = Math.round(Math.random() * ocNamesLength);
+        const randomNumber = Math.floor(Math.random() * ocNamesLength);
         const character = new Character(characterNames[randomNumber]);
 
         let embedMessage;
@@ -38,10 +38,10 @@ export default{
             embedMessage = new EmbedBuilder()
             .setTitle('🎲 Pick Random Character <a:catchair:1462583100352626893>')
             .setDescription(`I pick... **${character.name}!**`)
-            .setThumbnail(character.photoLink)
+            .setThumbnail(character.image)
  
         }else{
-            let secondNumber = Math.round(Math.random() * ocNamesLength);
+            let secondNumber = Math.floor(Math.random() * ocNamesLength);
             if(secondNumber === randomNumber){secondNumber += 1}
             const character2 = new Character(characterNames[secondNumber]);
 

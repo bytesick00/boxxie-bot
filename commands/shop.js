@@ -444,7 +444,7 @@ async function setCollectionFilter(commandChoice, reply, interaction) {
               withResponse: false,
             });
           } catch (error) {
-            if ((error = "Not enough scrip!")) {
+            if (error.message === "Not enough scrip!") {
               const scripErrorComp = getScripErrorComponent(mun, thisQuantity);
               await componentResponse.update({
                 components: scripErrorComp,
