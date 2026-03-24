@@ -565,7 +565,7 @@ export class Inventory{
 
 // MISC FUNCTIONS
 export function getFlavorText(textID){
-    return getData('flavorText', 'id', textID)
+    return getData('flavorText', 'id', textID).text
 }
 export function getAllItemNames(shopType){
   const itemRows = getTableData('shop')

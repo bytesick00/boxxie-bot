@@ -17,7 +17,7 @@ const cancelComponent = [
         .addTextDisplayComponents(
             new TextDisplayBuilder().setContent("### 🗑️ Reprint was cancelled!"),
         ),
-];
+]; 
 
 function setComponent(ocName){
     let compMessage = getFlavorText('Reprint_Warning')
