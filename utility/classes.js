@@ -359,7 +359,7 @@ export class Character extends DBTable {
 
 export class baseStats extends DBTable {
   constructor(ocName){
-    super('currentStats', 'name', ocName)
+    super('baseStats', 'name', ocName)
     this.name = this.data.name;
     this.wit = this.data.wit;
     this.cha = this.data.cha;

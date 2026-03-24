@@ -9,7 +9,7 @@ export function numToLetter(number){
     return String.fromCharCode(94 + number);
   }
   else{
-    throw new Error("Could not get letter for input number: " & number);
+    throw new Error(`Could not get letter for input number: ${number}`);
     
   }
 }

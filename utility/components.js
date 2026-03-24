@@ -209,7 +209,7 @@ export function getInventoryComponents(inventory) {
             ),
           )
           .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent("## Marcus's Inventory"),
+            new TextDisplayBuilder().setContent(`## ${inventory.mun.name}'s Inventory`),
             new TextDisplayBuilder().setContent("**```IN CHARACTER ITEMS```**"),
             new TextDisplayBuilder().setContent(icItems),
           ),

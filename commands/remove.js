@@ -40,7 +40,7 @@ async function changeWallet(interaction, amount, mun){
         💰 **NEW BALANCE:** \`${mun.scrip}\` scrip`;
     }
     catch (error) {
-        if(error = "Not enough scrip!"){
+        if(error.message === "Not enough scrip!"){
             actionMessage = 
             `**\`\`\`ERROR: Not enough scrip in ${mun.name}'s wallet, cannot remove ${amount} scrip!\`\`\`**
             💰 **BALANCE:** \`${mun.scrip}\` scrip`;

@@ -53,7 +53,7 @@ async function mainFunction(interaction){
     if(userOption === null){
         userOption = interaction.user
     }
-    const allMuns = getTableData('muns')
+    const allMuns = await getTableData('muns')
     const munName = allMuns.find(row=>row.id === userOption.id).name
     const mun = new Mun(munName);
 
