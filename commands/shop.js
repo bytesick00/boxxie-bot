@@ -106,8 +106,8 @@ function displayShop(pageNum, shopType) {
   const shop = getTableData("shop").filter(item=> item.shop === shopType);
   const maxPages = Math.ceil(shop.length / 5);
 
-  const itemDesc = getFlavorText("Shop_Item").text;
-  const shopDesc = getFlavorText("Shop_Desc").text;
+  const itemDesc = getFlavorText("Shop_Item");
+  const shopDesc = getFlavorText("Shop_Desc");
   const pageIndex = `Page ${pageNum} / ${maxPages}`;
 
   const shopDescContainer = new ContainerBuilder()
