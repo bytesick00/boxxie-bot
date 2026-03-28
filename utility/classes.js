@@ -4,7 +4,7 @@ import {
   updateRange,
   rowValueR1C1ToA1,
 } from "../sheets.js";
-import { addData, getData, getFieldProperties, getTableData, updateData } from "./access_data.js";
+import { addData, getData, getFieldProperties, getTableData, updateData, addInventoryRow } from "./access_data.js";
 import { randOutOf } from "./utils.js";
 
 /**
@@ -406,12 +406,41 @@ export class Item extends DBTable {
     this.description = this.data.description;
     this.useText = this.data.useText;
     this.shop = this.data.shop;
-    this.id = this.data.id;
     this.image = this.data.image;
     this.buyPrice = sanitizeScrip(this.data.buyPrice);
     this.sellPrice = sanitizeScrip(this.data.sellPrice);
+    this.amount = this.data.amount !== undefined ? parseInt(this.data.amount) : undefined;
   }
 
+  /**
+   * Whether this item is available (not limited to 0).
+   * Undefined/empty amount means unlimited.
+   */
+  get isAvailable(){
+    if(this.amount === undefined || isNaN(this.amount)) return true;
+    return this.amount !== 0;
+  }
+
+  /**
+   * Whether buying/obtaining a given quantity is allowed.
+   * @param {number} quantity
+   */
+  canObtain(quantity = 1){
+    if(this.amount === undefined || isNaN(this.amount)) return true;
+    if(this.amount <= 0) return false;
+    return this.amount >= quantity;
+  }
+
+  /**
+   * Decrements the world amount after an item is obtained.
+   * @param {number} quantity
+   */
+  async decrementAmount(quantity = 1){
+    if(this.amount === undefined || isNaN(this.amount)) return;
+    const newAmount = Math.max(0, this.amount - quantity);
+    this.amount = newAmount;
+    await this.changeProperty('amount', String(newAmount));
+  }
 }
 
 /**
@@ -473,6 +502,12 @@ export class Inventory{
 
   async buyItem(itemName, quantity){
     const thisItem = new Item(itemName);
+
+    // Check world amount availability (skip for negative quantity, i.e. item removal)
+    if(quantity > 0 && !thisItem.canObtain(quantity)){
+      throw new Error(thisItem.amount === 0 ? "Item unavailable!" : `Only ${thisItem.amount} left in stock!`);
+    }
+
     //remove scrip
     try{
       if(quantity > 0){
@@ -485,11 +520,34 @@ export class Inventory{
     }
     
     const currentDate = new Date();
-    const newRowData = {'id': this.mun.id, 'name': this.mun.name, 'item': thisItem.name, 'amount': quantity, 'date': currentDate.toUTCString()};
-    await addData('inventory', newRowData).then(()=>{return true})
+    const newRowData = {'id': this.mun.id, 'mun': this.mun.name, 'item': thisItem.name, 'amount': quantity, 'date': currentDate.toUTCString()};
+    await addInventoryRow(newRowData);
+
+    // Decrement world amount if applicable
+    if(quantity > 0){
+      await thisItem.decrementAmount(quantity);
+    }
     
     await this.refresh();
     
+  }
+
+  async addItem(itemName, quantity){
+    const thisItem = new Item(itemName);
+
+    if(quantity > 0 && !thisItem.canObtain(quantity)){
+      throw new Error(thisItem.amount === 0 ? "Item unavailable!" : `Only ${thisItem.amount} left in stock!`);
+    }
+
+    const currentDate = new Date();
+    const newRowData = {'id': this.mun.id, 'mun': this.mun.name, 'item': thisItem.name, 'amount': quantity, 'date': currentDate.toUTCString()};
+    await addInventoryRow(newRowData);
+
+    if(quantity > 0){
+      await thisItem.decrementAmount(quantity);
+    }
+
+    await this.refresh();
   }
 
   async refresh(){
@@ -521,14 +579,26 @@ export class Inventory{
      * @type {Item}
      */
     const item = this.getItem(itemName)
+
+    if(!item.useText || item.useText.trim() === ''){
+      return {text: null, consumed: false}
+    }
+
+    // Support random flavor text separated by |||
+    let flavorText = item.useText;
+    if (flavorText.includes('|||')) {
+      const options = flavorText.split('|||').map(s => s.trim()).filter(Boolean);
+      flavorText = options[Math.floor(Math.random() * options.length)];
+    }
+
     const useType = item.type
 
     if(useType === 'Usable'){
-      return {text:item.useText, consumed: false}
+      return {text: flavorText, consumed: false}
     }
     else{
       await this.buyItem(item.name, -1)
-      return {text: item.useText, consumed: true}
+      return {text: flavorText, consumed: true}
     }
   }
 
@@ -576,13 +646,51 @@ export function getFlavorText(textID){
 }
 export function getAllItemNames(shopType){
   const itemRows = getTableData('shop')
-  if(shopType === null){
-    return itemRows.map(row=> row.name)
+  // Filter out items with amount === 0 (unavailable)
+  const available = itemRows.filter(row => {
+    const amt = row.amount !== undefined && row.amount !== '' ? parseInt(row.amount) : undefined;
+    return amt === undefined || isNaN(amt) || amt !== 0;
+  });
+  if(shopType === null || shopType === undefined){
+    return available.map(row=> row.name)
   }
   else{
-    return itemRows.filter(row=>row.shop === shopType).map(row=> row.name)
+    return available.filter(row=>row.shop === shopType).map(row=> row.name)
   }
   
+}
+
+/**
+ * Returns all open shops from the Shops And Gacha table
+ * @returns {{name: string, open: string, type: string, description: string}[]}
+ */
+export function getOpenShops(){
+  const allEntries = getTableData('shopsAndGacha')
+  return allEntries.filter(entry => entry.open === 'TRUE' && entry.type === 'Shop')
+}
+
+/**
+ * Returns all open gachas from the Shops And Gacha table
+ * @returns {{name: string, open: string, type: string, description: string}[]}
+ */
+export function getOpenGachas(){
+  const allEntries = getTableData('shopsAndGacha')
+  return allEntries.filter(entry => entry.open === 'TRUE' && entry.type === 'Gacha')
+}
+
+/**
+ * Gets all items belonging to a specific gacha (by shop name)
+ * @param {string} gachaName 
+ * @returns {Item[]}
+ */
+export function getGachaItems(gachaName){
+  const itemRows = getTableData('shop')
+  return itemRows.filter(row => {
+    if(row.shop !== gachaName) return false;
+    // Exclude items with amount === 0
+    const amt = row.amount !== undefined && row.amount !== '' ? parseInt(row.amount) : undefined;
+    return amt === undefined || isNaN(amt) || amt !== 0;
+  })
 }
 
 function sanitizeScrip(scrip){

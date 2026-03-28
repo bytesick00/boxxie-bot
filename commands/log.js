@@ -54,4 +54,26 @@ export default{
         await mainFunction(interaction);
 
     },
+    async executePrefix(message, args) {
+        const wordCount = parseInt(args);
+        if (isNaN(wordCount)) {
+            await message.reply('Please provide a word count! Usage: `!submit <word-count> [@user]`');
+            return;
+        }
+        const wordPayout = getData('mechanics', 'type', 'Words');
+        let payout = Math.round(parseFloat(wordPayout.rate) * wordCount);
+        const user = message.mentions.users.first() || message.author;
+        const allMuns = await getTableData('muns');
+        const munData = allMuns.find(row => row.id === user.id);
+        if (!munData) {
+            await message.reply("Couldn't find that user's profile!");
+            return;
+        }
+        const thisMun = new Mun(munData.name);
+        await thisMun.addScrip(payout);
+        const msg = `**\`\`\`${wordCount} words = ${payout} scrip!\nAdded ${payout} scrip to ${thisMun.name}'s wallet!\`\`\`**\n💰 **NEW BALANCE:** \`${thisMun.scrip}\` scrip`;
+        const embed = basicEmbed('', msg, '', '', '', false);
+        embed.setColor("#acd46e");
+        await message.reply({ embeds: [embed] });
+    },
 }

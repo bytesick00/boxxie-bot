@@ -68,4 +68,24 @@ export default{
         await mainFunction(interaction);
 
     },
+    async executePrefix(message, args) {
+        const amount = parseInt(args);
+        if (isNaN(amount) || amount < 0) {
+            await message.reply('Please provide a valid amount! Usage: `!add <amount> [@user]`');
+            return;
+        }
+        const user = message.mentions.users.first() || message.author;
+        const allMuns = await getTableData('muns');
+        const munData = allMuns.find(row => row.id === user.id);
+        if (!munData) {
+            await message.reply("Couldn't find that user's profile!");
+            return;
+        }
+        const mun = new Mun(munData.name);
+        await mun.addScrip(amount);
+        const actionMessage = `**\`\`\`Added ${amount} scrip to ${mun.name}'s wallet.\`\`\`**\n💰 **NEW BALANCE:** \`${mun.scrip}\` scrip`;
+        const embed = basicEmbed('Manage Wallet', actionMessage, 'https://p0.piqsels.com/preview/28/212/916/coin-coins-money-finance.jpg', '', '', false);
+        embed.setColor("#acd46e");
+        await message.reply({ embeds: [embed] });
+    },
 }

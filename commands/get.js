@@ -49,4 +49,27 @@ export default{
         }
         
     },
+    async executePrefix(message, args) {
+        if (!args) {
+            await message.reply('Please specify what to get! Usage: `!get <command>`');
+            return;
+        }
+        const commandInfo = getData('customCommands', 'name', args.trim());
+        if (!commandInfo) {
+            await message.reply(`Could not find command "${args.trim()}".`);
+            return;
+        }
+        if (commandInfo.embed === "TRUE") {
+            const embedMessage = basicEmbed(
+                commandInfo.title,
+                commandInfo.description,
+                commandInfo.thumbnail,
+                commandInfo.image,
+                commandInfo.link
+            );
+            await message.reply({ embeds: [embedMessage] });
+        } else {
+            await message.reply({ content: commandInfo.title });
+        }
+    },
 }

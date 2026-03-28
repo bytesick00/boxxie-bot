@@ -20,4 +20,9 @@ export default{
             } 
         );
     },
+    async executePrefix(message) {
+        await cacheAllData(true);
+        const embed = basicEmbed('Data Refreshed!🍹', 'The bot has pulled the most recent data from the spreadsheet.');
+        await message.reply({ embeds: [embed] });
+    },
 }

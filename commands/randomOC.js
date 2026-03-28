@@ -56,4 +56,26 @@ export default{
             {embeds: [embedMessage]}
         );
     },
+    async executePrefix(message, args) {
+        const choice = args?.toLowerCase()?.trim();
+        let characterNames = getTableData('ocs').map(row => row.name);
+        const randomNumber = Math.floor(Math.random() * characterNames.length);
+        const character = new Character(characterNames[randomNumber]);
+        let embedMessage;
+        if (choice === 'pairing') {
+            let secondNumber = Math.floor(Math.random() * characterNames.length);
+            if (secondNumber === randomNumber) secondNumber = (secondNumber + 1) % characterNames.length;
+            const character2 = new Character(characterNames[secondNumber]);
+            embedMessage = new EmbedBuilder()
+                .setTitle('🎲 Pick Random OC Pairing')
+                .setDescription(`I pick... **${character.name}** and **${character2.name}!**`);
+        } else {
+            embedMessage = new EmbedBuilder()
+                .setTitle('🎲 Pick Random Character')
+                .setDescription(`I pick... **${character.name}!**`)
+                .setThumbnail(character.image);
+        }
+        embedMessage = addStandardFormat(embedMessage);
+        await message.reply({ embeds: [embedMessage] });
+    },
 }
