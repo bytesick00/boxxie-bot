@@ -9,14 +9,15 @@ export default{
         .setDescription('Refreshes data from the AB database.'),
     async execute(interaction) {
 
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
         // await AB_DATA.pullData();
         await cacheAllData(true);
         let embedMessage = basicEmbed('Data Refreshed!🍹', 'The bot has pulled the most recent data from the spreadsheet.');
 
-        await interaction.reply(
+        await interaction.editReply(
             {
                 embeds: [embedMessage],
-                flags: [MessageFlags.Ephemeral]
             } 
         );
     },
