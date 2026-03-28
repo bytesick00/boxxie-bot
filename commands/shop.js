@@ -1,10 +1,8 @@
 import {
   SlashCommandBuilder,
-  CommandInteraction,
-  ComponentBuilder,
   MessageFlags,
 } from "discord.js";
-import { getData, getTableData } from "../utility/access_data.js";
+import { getTableData } from "../utility/access_data.js";
 import {
   TextDisplayBuilder,
   ThumbnailBuilder,
@@ -17,98 +15,49 @@ import {
   SeparatorSpacingSize,
 } from "discord.js";
 import {
-  getAllItemNames,
   getFlavorText,
+  getOpenShops,
   Item,
-  Mun,
 } from "../utility/classes.js";
 import {
-  getBuyConfirmContainer,
   getItemInfoContainer,
+  buildPaginatedItemSelect,
+  buildCategoryFilterRow,
+  fuzzyMatchItems,
 } from "../utility/components.js";
+import { basicEmbed } from "../utility/format_embed.js";
 
-let currentPage = 1;
-let thisItemName;
-let thisShopType;
-let thisQuantity = 1;
+const ITEMS_PER_PAGE = 10;
 
 const commandBuilder = new SlashCommandBuilder()
   .setName("shop")
-  .setDescription("Interact with the shop!")
-  .addSubcommand((option) =>
+  .setDescription("Browse the shop!")
+  .addStringOption((option) =>
     option
-      .setName("browse")
-      .setDescription("Browse the whole shop!")
-      .addStringOption((option) =>
-        option
-          .setName("which_shop")
-          .setDescription("Browse the IC or OOC shop?")
-          .setChoices([
-            { name: "IC", value: "IC" },
-            { name: "OOC", value: "OOC" },
-          ])
-          .setRequired(true),
-      ),
-  )
-  .addSubcommand((option) =>
-    option
-      .setName("info")
-      .setDescription("Quickly view an item")
-      .addStringOption((option) =>
-        option
-          .setName("which_shop")
-          .setDescription("IC or OOC shop item?")
-          .setChoices([
-            { name: "IC", value: "IC" },
-            { name: "OOC", value: "OOC" },
-          ])
-          .setRequired(true),
-      )
-      .addStringOption((option) =>
-        option
-          .setName("item")
-          .setDescription("Which item do you want to view?")
-          .setRequired(true)
-          .setAutocomplete(true),
-      ),
-  )
-  .addSubcommand((option) =>
-    option
-      .setName("buy")
-      .setDescription("Quickly buy an item")
-      .addStringOption((option) =>
-        option
-          .setName("which_shop")
-          .setDescription("IC or OOC shop item?")
-          .setChoices([
-            { name: "IC", value: "IC" },
-            { name: "OOC", value: "OOC" },
-          ])
-          .setRequired(true),
-      )
-      .addStringOption((option) =>
-        option
-          .setName("item")
-          .setDescription("Which item do you want to buy?")
-          .setRequired(true)
-          .setAutocomplete(true),
-      )
-      .addIntegerOption((option) =>
-        option
-          .setName("quantity")
-          .setDescription("How many do you want to buy? Defaults to 1."),
-      ),
+      .setName("shop")
+      .setDescription("Which shop do you want to browse?")
+      .setRequired(true)
+      .setAutocomplete(true),
   );
 
+function getShopCategories(shopType) {
+  const shop = getTableData("shop").filter((item) => item.shop === shopType);
+  const types = [...new Set(shop.map((item) => item.type).filter(Boolean))];
+  const categories = [{ label: "All", value: "ALL" }];
+  for (const t of types) {
+    categories.push({ label: t, value: t });
+  }
+  return categories;
+}
 
-
-function displayShop(pageNum, shopType) {
-  const shop = getTableData("shop").filter(item=> item.shop === shopType);
-  const maxPages = Math.ceil(shop.length / 5);
+function displayShop(pageNum, shopType, category = "ALL") {
+  let shop = getTableData("shop").filter((item) => item.shop === shopType);
+  if (category !== "ALL") {
+    shop = shop.filter((item) => item.type === category);
+  }
 
   const itemDesc = getFlavorText("Shop_Item");
   const shopDesc = getFlavorText("Shop_Desc");
-  const pageIndex = `Page ${pageNum} / ${maxPages}`;
 
   const shopDescContainer = new ContainerBuilder()
     .setAccentColor(11326574)
@@ -127,16 +76,65 @@ function displayShop(pageNum, shopType) {
         ),
     );
 
+  // Build category filter row
+  const categories = getShopCategories(shopType);
+  const categoryRow = buildCategoryFilterRow(categories, category);
+
+  // Build paginated item select
+  const allItems = shop.map((item) => ({
+    label: item.name,
+    value: item.name,
+    description: `${item.buyPrice} scrip | ${item.type || "???"}`,
+  }));
+
+  const { selectRow, navRow, totalPages, pageItems, currentPage } =
+    buildPaginatedItemSelect({
+      items: allItems,
+      page: pageNum,
+      pageSize: ITEMS_PER_PAGE,
+      selectId: "select_item",
+      placeholder: "Select an item...",
+    });
+
+  // Build display text for current page items
   const shopItemsContainer = new ContainerBuilder().setAccentColor(11326574);
 
-  const lowIndex = (pageNum - 1) * 5;
-  let highIndex = lowIndex + 5;
-  if (highIndex > shop.length) {
-    highIndex = shop.length;
+  const displayItems = shop.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE,
+  );
+
+  for (const item of displayItems) {
+    const tabSpace = "[TAB_SPACE]";
+    const standardLength = 20;
+
+    let thisDesc = itemDesc
+      .replace("[ITEM_NAME]", item.name)
+      .replace("[ITEM_DESC]", item.description)
+      .replace("[ITEM_PRICE]", item.buyPrice);
+
+    const itemName = item.name;
+    let spaceAmount = " ";
+    if (itemName.length < standardLength) {
+      spaceAmount = " ".repeat(standardLength - itemName.length);
+    }
+    thisDesc = thisDesc.replace(tabSpace, spaceAmount);
+
+    shopItemsContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(thisDesc),
+    );
   }
-  for (const item of shop.slice(lowIndex, highIndex)) {
-    addItemToComponent(shopItemsContainer, item, itemDesc);
+
+  if (displayItems.length === 0) {
+    shopItemsContainer.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent("No items in this category! 🫗"),
+    );
   }
+
+  const closeButton = new ButtonBuilder()
+    .setStyle(ButtonStyle.Danger)
+    .setLabel("Exit Shop")
+    .setCustomId("exit");
 
   shopItemsContainer
     .addSeparatorComponents(
@@ -144,131 +142,29 @@ function displayShop(pageNum, shopType) {
         .setSpacing(SeparatorSpacingSize.Small)
         .setDivider(false),
     )
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(pageIndex));
+    .addActionRowComponents(selectRow);
 
-  const backButton = new ButtonBuilder()
-    .setStyle(ButtonStyle.Secondary)
-    .setLabel("‹ Back")
-    .setCustomId("back");
-
-  const nextButton = new ButtonBuilder()
-    .setStyle(ButtonStyle.Secondary)
-    .setLabel("Next ›")
-    .setCustomId("next");
-
-  const closeButton = new ButtonBuilder()
-    .setStyle(ButtonStyle.Secondary)
-    .setLabel("Exit Shop")
-    .setCustomId("exit")
-    .setStyle(ButtonStyle.Danger);
-
-  if (pageNum === 1) {
-    backButton.setDisabled(true);
+  if (navRow) {
+    navRow.addComponents(closeButton);
+    shopItemsContainer.addActionRowComponents(navRow);
   } else {
-    backButton.setDisabled(false);
-  }
-
-  if (pageNum === maxPages) {
-    nextButton.setDisabled(true);
-  } else {
-    nextButton.setDisabled(false);
-  }
-
-  const pageButtons = new ActionRowBuilder().addComponents([
-    backButton,
-    nextButton,
-    closeButton,
-  ]);
-
-  return {
-    components: [shopDescContainer, shopItemsContainer, pageButtons],
-    flags: MessageFlags.IsComponentsV2,
-    withResponse: true,
-  };
-}
-
-/**
- * Description placeholder
- *
- * @param {ContainerBuilder} component
- * @param {Item} item
- * @param {string} itemDesc
- */
-function addItemToComponent(component, item, itemDesc) {
-  const tabSpace = "[TAB_SPACE]";
-  const standardLength = 20;
-
-  let thisDesc = itemDesc
-    .replace("[ITEM_NAME]", item.name)
-    .replace("[ITEM_DESC]", item.description)
-    .replace("[ITEM_PRICE]", item.buyPrice);
-
-  const itemName = "[ITEM_NAME]".replace("[ITEM_NAME]", item.name);
-
-  let spaceAmount = " ";
-  if (itemName.length < standardLength) {
-    spaceAmount = " ".repeat(standardLength - itemName.length);
-  }
-
-  thisDesc = thisDesc.replace(tabSpace, spaceAmount);
-
-  const infoID = `info_${item.id}`;
-  const buyID = `buy_${item.id}`;
-
-  component
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(thisDesc))
-    .addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Secondary)
-          .setLabel("info")
-          .setEmoji({
-            name: "🔍",
-          })
-          .setCustomId(infoID),
-
-        new ButtonBuilder()
-          .setStyle(ButtonStyle.Secondary)
-          .setLabel("buy")
-          .setEmoji({
-            name: "💸",
-          })
-          .setCustomId(buyID),
-      ),
+    shopItemsContainer.addActionRowComponents(
+      new ActionRowBuilder().addComponents(closeButton),
     );
-}
-
-function buyItem(interaction, itemName, quantity) {
-  thisItemName = itemName;
-
-  if (quantity === null) {
-    quantity = 1;
   }
-  thisQuantity = quantity;
 
-  const munID = interaction.user.id;
-  const allMuns = getTableData("muns");
-  const munName = allMuns.find((row) => row.id === munID).name;
-  const mun = new Mun(munName);
+  const components = [shopDescContainer];
+  if (categoryRow) components.push(categoryRow);
+  components.push(shopItemsContainer);
 
-  const item = new Item(itemName);
-
-  const components = getBuyConfirmContainer(
-    item.name,
-    quantity,
-    item.buyPrice,
-    mun.scrip,
-    item.image,
-  );
   return {
-    components: components,
+    components,
     flags: MessageFlags.IsComponentsV2,
     withResponse: true,
   };
 }
 
 function viewItem(itemName) {
-  thisItemName = itemName;
   const item = new Item(itemName);
 
   const components = getItemInfoContainer(
@@ -276,44 +172,13 @@ function viewItem(itemName) {
     item.buyPrice,
     item.description,
     item.image,
-    item.type
+    item.type,
   );
   return {
     components: components,
     flags: MessageFlags.IsComponentsV2,
     withResponse: true,
   };
-}
-
-async function mainFunction(interaction) {
-  await interaction.deferReply();
-  const choice = interaction.options.getSubcommand();
-  let payload;
-
-  switch (choice) {
-    case "browse":
-      const shopType = interaction.options.getString("which_shop")
-      thisShopType = shopType;
-
-      payload = displayShop(currentPage, shopType);
-      break;
-    case "buy":
-      var itemName = interaction.options.getString("item");
-      const quantity = interaction.options.getInteger("quantity");
-
-      payload = buyItem(interaction, itemName, quantity);
-      break;
-    case "info":
-      var itemName = interaction.options.getString("item");
-      payload = viewItem(itemName);
-      break;
-    default:
-      break;
-  }
-
-  const reply = await interaction.editReply(payload);
-
-  await setCollectionFilter(choice, reply, interaction);
 }
 
 const errorComponent = [
@@ -324,143 +189,90 @@ const errorComponent = [
     ),
 ];
 
-const cancelComponent = [
+const timeoutComponent = [
   new ContainerBuilder()
     .setAccentColor(11326574)
     .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent("## Purchase Canceled! 🚫"),
+      new TextDisplayBuilder().setContent(
+        "### Shop closed! Use `/shop` to reopen. \uD83D\uDD12",
+      ),
     ),
 ];
 
-function getScripErrorComponent(mun, amount) {
-  const poorComponent = [
-    new ContainerBuilder().setAccentColor(11326574).addTextDisplayComponents(
-      new TextDisplayBuilder()
-        .setContent(`**\`\`\`ERROR: Not enough scrip in ${mun.name}'s wallet, cannot remove ${amount} scrip!\`\`\`**
-                                💰 **BALANCE:** \`${mun.scrip}\` scrip`),
-    ),
-  ];
-  return poorComponent;
-}
-
-function getPurchasedComponent(itemName, quantity, newBalance) {
-  const message =
-    "## Purchased ([QUANTITY]x) [ITEM_NAME]! 🎉\n💰 **NEW BALANCE**: [SCRIP]"
-      .replace("[QUANTITY]", quantity)
-      .replace("[ITEM_NAME]", itemName)
-      .replace("[SCRIP]", newBalance);
-  return [
-    new ContainerBuilder()
-      .setAccentColor(11326574)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(message)),
-  ];
-}
-
-async function setCollectionFilter(commandChoice, reply, interaction) {
+async function awaitComponent(reply, interaction) {
+  const collectorFilter = (i) => i.user.id === interaction.user.id;
   try {
-    const collectorFilter = (i) => i.user.id === interaction.user.id;
-    let componentResponse;
+    return await reply.awaitMessageComponent({
+      filter: collectorFilter,
+      time: 900_000,
+    });
+  } catch {
+    return await reply.resource.message.awaitMessageComponent({
+      filter: collectorFilter,
+      time: 900_000,
+    });
+  }
+}
 
-    try {
-      componentResponse = await reply.awaitMessageComponent({
-        filter: collectorFilter,
-        time: 60_000,
-      });
-    } catch {
-      componentResponse = await reply.resource.message.awaitMessageComponent({
-        filter: collectorFilter,
-        time: 60_000,
-      });
-    }
+async function handleCollector(commandChoice, reply, interaction, ctx) {
+  let componentResponse;
+  try {
+    componentResponse = await awaitComponent(reply, interaction);
+  } catch {
+    await interaction.editReply({
+      components: timeoutComponent,
+      flags: MessageFlags.IsComponentsV2,
+    });
+    return;
+  }
 
+  try {
     const response = componentResponse.customId;
 
     switch (commandChoice) {
       case "browse":
-        if (response.startsWith("info")) {
-          const chosenItem = getData("shop", "id", response.slice(5)).name;
+        if (response === "select_item") {
+          const chosenItem = componentResponse.values[0];
+          ctx.itemName = chosenItem;
           const newComp = viewItem(chosenItem);
           const newResponse = await componentResponse.update(newComp);
-
-          await setCollectionFilter("info", newResponse, interaction);
+          await handleCollector("info", newResponse, interaction, ctx);
           return;
         }
 
-        if (response.startsWith("buy")) {
-          const chosenItem = getData("shop", "id", response.slice(4)).name;
-          const newComp = buyItem(interaction, chosenItem, 1);
+        if (response === "page_next") {
+          const shopItems = getTableData("shop").filter(
+            (item) => item.shop === ctx.shopType,
+          );
+          const filtered = ctx.category === "ALL"
+            ? shopItems
+            : shopItems.filter((item) => item.type === ctx.category);
+          const maxPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+          ctx.currentPage = Math.min(ctx.currentPage + 1, maxPages);
+          const newComp = displayShop(ctx.currentPage, ctx.shopType, ctx.category);
           const newResponse = await componentResponse.update(newComp);
-
-          await setCollectionFilter("info", newResponse, interaction);
-          return;
-        }
-
-        if (response === "next") {
-          currentPage += 1;
-          const newComp = displayShop(currentPage, thisShopType);
+          await handleCollector("browse", newResponse, interaction, ctx);
+        } else if (response === "page_back") {
+          ctx.currentPage = Math.max(ctx.currentPage - 1, 1);
+          const newComp = displayShop(ctx.currentPage, ctx.shopType, ctx.category);
           const newResponse = await componentResponse.update(newComp);
-          await setCollectionFilter("browse", newResponse, interaction);
-        } else if (response === "back") {
-          currentPage -= 1;
-          const newComp = displayShop(currentPage, thisShopType);
+          await handleCollector("browse", newResponse, interaction, ctx);
+        } else if (response.startsWith("cat_")) {
+          ctx.category = response.slice(4);
+          ctx.currentPage = 1;
+          const newComp = displayShop(ctx.currentPage, ctx.shopType, ctx.category);
           const newResponse = await componentResponse.update(newComp);
-          await setCollectionFilter("browse", newResponse, interaction);
+          await handleCollector("browse", newResponse, interaction, ctx);
         } else {
-          //exit everything
           await interaction.deleteReply();
         }
-
         break;
+
       case "info":
         if (response === "shop") {
-          const newComp = displayShop(currentPage, thisShopType);
+          const newComp = displayShop(ctx.currentPage, ctx.shopType, ctx.category);
           const newResponse = await componentResponse.update(newComp);
-          await setCollectionFilter("browse", newResponse, interaction);
-        } else {
-          const newComp = buyItem(interaction, thisItemName, 1);
-          const newResponse = await componentResponse.update(newComp);
-          await setCollectionFilter("buy", newResponse, interaction);
-        }
-
-        break;
-      case "buy":
-        if (response === "confirm") {
-          const munID = interaction.user.id;
-          const allMuns = getTableData("muns");
-          const munName = allMuns.find((row) => row.id === munID).name;
-          const mun = new Mun(munName);
-
-          try {
-            (await mun.inventory).buyItem(thisItemName, thisQuantity);
-            const newBalance = mun.scrip;
-            const comp = getPurchasedComponent(
-              thisItemName,
-              thisQuantity,
-              newBalance,
-            );
-            await componentResponse.update({
-              components: comp,
-              flags: MessageFlags.IsComponentsV2,
-              withResponse: false,
-            });
-          } catch (error) {
-            if (error.message === "Not enough scrip!") {
-              const scripErrorComp = getScripErrorComponent(mun, thisQuantity);
-              await componentResponse.update({
-                components: scripErrorComp,
-                flags: MessageFlags.IsComponentsV2,
-                withResponse: false,
-              });
-            } else {
-              throw error;
-            }
-          }
-        } else {
-          await componentResponse.update({
-            components: cancelComponent,
-            flags: MessageFlags.IsComponentsV2,
-            withResponse: false,
-          });
+          await handleCollector("browse", newResponse, interaction, ctx);
         }
         break;
 
@@ -468,8 +280,26 @@ async function setCollectionFilter(commandChoice, reply, interaction) {
         break;
     }
   } catch {
-    await interaction.editReply({ components: errorComponent });
+    await interaction.editReply({
+      components: errorComponent,
+      flags: MessageFlags.IsComponentsV2,
+    });
   }
+}
+
+async function mainFunction(interaction) {
+  await interaction.deferReply();
+
+  const ctx = {
+    currentPage: 1,
+    shopType: interaction.options.getString("shop"),
+    category: "ALL",
+    itemName: null,
+  };
+
+  const payload = displayShop(ctx.currentPage, ctx.shopType, ctx.category);
+  const reply = await interaction.editReply(payload);
+  await handleCollector("browse", reply, interaction, ctx);
 }
 
 export default {
@@ -478,18 +308,39 @@ export default {
     await mainFunction(interaction);
   },
   async autocomplete(interaction) {
-    let shopType = interaction.options.getString("which_shop");
-
-    let choices = getAllItemNames(shopType);
+    const openShops = getOpenShops();
     const focusedValue = interaction.options.getFocused();
-    let filtered = choices.filter((choice) =>
-      choice.toLowerCase().startsWith(focusedValue.toLowerCase()),
-    );
-    if (filtered.length > 25) {
-      filtered = filtered.slice(0, 24);
-    }
+    const shopNames = openShops.map((s) => s.name);
+    const filtered = fuzzyMatchItems(shopNames, focusedValue);
     await interaction.respond(
-      filtered.map((choice) => ({ name: choice, value: choice })),
+      filtered.map((name) => ({ name: name, value: name })),
     );
+  },
+  async executePrefix(message, args) {
+    if (!args) {
+      const openShops = getOpenShops();
+      if (openShops.length === 0) {
+        await message.reply('No shops are currently open!');
+        return;
+      }
+      const list = openShops.map(s => `\u2022 **${s.name}**${s.description ? ` \u2014 ${s.description}` : ''}`).join('\n');
+      const embed = basicEmbed('\uD83C\uDFEA Available Shops', list);
+      await message.reply({ embeds: [embed] });
+      return;
+    }
+    const shopType = args.trim();
+    const shopItems = getTableData("shop").filter(item =>
+      item.shop?.toLowerCase() === shopType.toLowerCase()
+    );
+    if (shopItems.length === 0) {
+      await message.reply(`No items found in shop "${shopType}".`);
+      return;
+    }
+    const lines = shopItems.map(item => {
+      const price = item.buyPrice || 'N/A';
+      return `\u2022 **${item.name}** \u2014 \`${price} scrip\`\n  > ${item.description || 'No description.'}`;
+    });
+    const embed = basicEmbed(`\uD83C\uDFEA ${shopType}`, lines.join('\n'));
+    await message.reply({ embeds: [embed] });
   },
 };

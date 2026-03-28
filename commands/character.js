@@ -333,5 +333,63 @@ export default{
             filtered = filtered.slice(0, 24)
         }
 		await interaction.respond(filtered.map((choice) => ({ name: choice, value: choice })));
-	}, 
+	},
+    async executePrefix(message, args) {
+        if (!args) {
+            await message.reply('Usage: `!oc <name>`, `!oc profile <name>`, `!oc stats <name>`, `!oc change <name> <stat> <value>`');
+            return;
+        }
+        const parts = args.split(/\s+/);
+        let subcommand = parts[0]?.toLowerCase();
+        let characterName;
+        const subcommands = ['profile', 'stats', 'change'];
+        if (!subcommands.includes(subcommand)) {
+            subcommand = 'profile';
+            characterName = args.trim();
+        } else {
+            characterName = parts.slice(1).join(' ');
+        }
+        if (subcommand === 'change') {
+            const statKeywords = ['wit', 'cha', 'str', 'mve', 'dur', 'lck'];
+            const value = parseInt(parts[parts.length - 1]);
+            const stat = parts[parts.length - 2]?.toLowerCase();
+            if (isNaN(value) || !statKeywords.includes(stat)) {
+                await message.reply('Usage: `!oc change <name> <stat> <value>` (stats: wit, cha, str, mve, dur, lck)');
+                return;
+            }
+            characterName = parts.slice(1, -2).join(' ');
+            let characterInfo;
+            try {
+                characterInfo = new Character(characterName);
+            } catch {
+                await message.reply(`I couldn't find an OC named "${characterName}".`);
+                return;
+            }
+            const origValue = characterInfo.currentStats[stat];
+            await characterInfo.currentStats.setStat(stat, value);
+            let description = `**${stat.toUpperCase()}:** \`${origValue}\` ➡️ \`${characterInfo.currentStats[stat]}\`\n\n`;
+            if (value > origValue) {
+                description += "-# \`STAT UP ⏫\` *yippee!*";
+            } else if (value < origValue) {
+                description += "-# \`STAT DOWN ⏬\` *tough break...*";
+            } else {
+                description += "-# \`STAT 🆗\` *Must have been the wind...*";
+            }
+            const embed = basicEmbed(characterInfo.name, description, characterInfo.image);
+            await message.reply({ embeds: [embed] });
+        } else {
+            let characterInfo;
+            try {
+                characterInfo = new Character(characterName);
+            } catch {
+                await message.reply(`I couldn't find an OC named "${characterName}".`);
+                return;
+            }
+            if (subcommand === 'stats') {
+                await message.reply({ embeds: [viewStats(characterInfo)] });
+            } else {
+                await message.reply({ embeds: [createProfileEmbed(characterInfo)] });
+            }
+        }
+    },
 }

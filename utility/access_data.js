@@ -18,7 +18,7 @@ export const SHEET_RANGES = [
         },
         {
             sheet: "All Items",
-            range: "A:J"
+            range: "A:K"
         },
         {
             sheet: "Current Stats",
@@ -36,8 +36,16 @@ export const SHEET_RANGES = [
             range: "A:B"
         },
         {
-            sheet: "Custom Commands",
+            sheet: "Get Commands",
             range: "A:G"
+        },
+        {
+            sheet: "Shops And Gacha",
+            range: "A:E"
+        },
+        {
+            sheet: "Custom Commands",
+            range: "A:I"
         }
 ]
 const shopKeys = [
@@ -74,12 +82,16 @@ const shopKeys = [
         sheet: "Shop"
     },
     {
-        db: "id",
-        sheet: "ID"
-    },
-    {
         db: "image",
         sheet: "Image Link"
+    },
+    {
+        db: "amount",
+        sheet: "Amount"
+    },
+    {
+        db: "rarity",
+        sheet: "Rarity"
     },
 ]
 const munKeys = [
@@ -298,6 +310,66 @@ const customKeys = [
         sheet: "Embed?"
     }
 ]
+const shopsAndGachaKeys = [
+    {
+        db: "name",
+        sheet: "Name"
+    },
+    {
+        db: "open",
+        sheet: "Open"
+    },
+    {
+        db: "type",
+        sheet: "Type"
+    },
+    {
+        db: "description",
+        sheet: "Description"
+    },
+    {
+        db: "gachaPrice",
+        sheet: "Gacha Price"
+    }
+]
+const prefixCommandKeys = [
+    {
+        db: "command",
+        sheet: "Command"
+    },
+    {
+        db: "text",
+        sheet: "Text"
+    },
+    {
+        db: "priority",
+        sheet: "Priority"
+    },
+    {
+        db: "limited",
+        sheet: "Limited"
+    },
+    {
+        db: "item",
+        sheet: "Item"
+    },
+    {
+        db: "money",
+        sheet: "Money"
+    },
+    {
+        db: "image",
+        sheet: "Image"
+    },
+    {
+        db: "embed",
+        sheet: "Embed"
+    },
+    {
+        db: "notes",
+        sheet: "Notes"
+    }
+]
 const allKeys = {
     'All Items': {keys: shopKeys, field: "shop"},
     'Mun Info': {keys: munKeys, field: "muns"},
@@ -307,7 +379,9 @@ const allKeys = {
     'Inventory Rows': {keys: inventoryKeys, field: "inventory"},
     'Mechanics': {keys: mechanicKeys, field: "mechanics"},
     'Flavor Text': {keys: flavorTextKeys, field: "flavorText"},
-    'Custom Commands': {keys: customKeys, field: "customCommands"}
+    'Get Commands': {keys: customKeys, field: "customCommands"},
+    'Shops And Gacha': {keys: shopsAndGachaKeys, field: "shopsAndGacha"},
+    'Custom Commands': {keys: prefixCommandKeys, field: "prefixCommands"}
 }
 
 const dbDefault = {
@@ -319,7 +393,10 @@ const dbDefault = {
     inventory: [],
     flavorText: [],
     customCommands: [],
-    mechanics: []
+    mechanics: [],
+    sublevelRuns: [],
+    shopsAndGacha: [],
+    prefixCommands: []
 }
 
 const cachePath = './data/cached-data.json';
@@ -352,6 +429,121 @@ export async function cacheAllData(overwrite = false){
         await cacheData(sheetRange, tableKeys, tableField, overwrite)
     }
 
+}
+
+// Fields stored only locally (not from Google Sheets) — preserved across restarts.
+const LOCAL_FIELDS = new Set(['sublevelRuns', 'sublevelElevator', 'activeRuns']);
+
+/**
+ * Initialize the cache on startup.
+ * Always re-fetches Google Sheets data, but preserves local-only fields
+ * (sublevel runs, elevator stats, active runs).
+ */
+export async function initCache() {
+    await setUpAdapter();
+
+    // Save local-only data before the sheets overwrite
+    const preserved = {};
+    for (const field of LOCAL_FIELDS) {
+        if (db.data[field] !== undefined) {
+            preserved[field] = db.data[field];
+        }
+    }
+
+    // Snapshot limited-use counters so they survive the sheet refresh.
+    // Keyed by "command\0text" so we can match rows even when names repeat.
+    const oldLimited = new Map();
+    if (db.data.prefixCommands) {
+        for (const cmd of db.data.prefixCommands) {
+            if (cmd.limited && cmd.limited !== '') {
+                oldLimited.set(`${cmd.command}\0${cmd.text}`, cmd.limited);
+            }
+        }
+    }
+
+    // Pull fresh data from sheets (overwrite = true)
+    console.log('Pulling fresh data from Google Sheets...');
+    for (const sheetRange of SHEET_RANGES) {
+        const tableKeys = allKeys[sheetRange.sheet].keys;
+        const tableField = allKeys[sheetRange.sheet].field;
+        await cacheData(sheetRange, tableKeys, tableField, true);
+    }
+
+    // Restore local-only data
+    for (const [field, value] of Object.entries(preserved)) {
+        db.data[field] = value;
+    }
+
+    // Merge cached limited counters back: keep whichever value is lower
+    // (a lower number means more uses were consumed).
+    if (db.data.prefixCommands) {
+        for (const cmd of db.data.prefixCommands) {
+            const key = `${cmd.command}\0${cmd.text}`;
+            if (oldLimited.has(key)) {
+                const cached = parseInt(oldLimited.get(key));
+                const sheet  = parseInt(cmd.limited);
+                if (!isNaN(cached) && (isNaN(sheet) || cached < sheet)) {
+                    cmd.limited = String(cached);
+                }
+            }
+        }
+    }
+
+    await db.write();
+    console.log('Cache initialized — sheets refreshed, local data preserved.');
+}
+
+/**
+ * Hard reset: wipe ALL cached data (including local runs) and re-fetch from sheets.
+ */
+export async function hardReset() {
+    await setUpAdapter();
+    db.data = { ...dbDefault };
+
+    console.log('Hard reset — pulling fresh data from Google Sheets...');
+    for (const sheetRange of SHEET_RANGES) {
+        const tableKeys = allKeys[sheetRange.sheet].keys;
+        const tableField = allKeys[sheetRange.sheet].field;
+        await cacheData(sheetRange, tableKeys, tableField, true);
+    }
+    await db.write();
+    console.log('Hard reset complete — all local data cleared.');
+}
+
+// ---- Active runs persistence ----
+
+export async function saveActiveRuns(runsMap) {
+    if (!db) await setUpAdapter();
+    const serialized = {};
+    for (const [channelId, run] of runsMap) {
+        serialized[channelId] = {
+            floors: run.floors,
+            finalized: [...run.finalized],
+            characters: Object.fromEntries(
+                [...run.characters].map(([name, data]) => [name, data])
+            ),
+            startMessageId: run.startMessageId,
+            password: run.password || null,
+        };
+    }
+    db.data.activeRuns = serialized;
+    await db.write();
+}
+
+export function loadActiveRuns() {
+    const data = db?.data?.activeRuns;
+    const runs = new Map();
+    if (!data) return runs;
+    for (const [channelId, run] of Object.entries(data)) {
+        runs.set(channelId, {
+            floors: run.floors,
+            finalized: new Set(run.finalized || []),
+            characters: new Map(Object.entries(run.characters || {})),
+            startMessageId: run.startMessageId || null,
+            password: run.password || null,
+        });
+    }
+    return runs;
 }
 
 async function cacheData(sheetRange, tableKeys, field, overwrite){
@@ -447,4 +639,88 @@ function getSheetColumnName(field, dbProp){
 export function getFieldProperties(field){
     return Object.values(allKeys).find(table => table.field === field).keys.map(key => key.db)
 
+}
+
+/**
+ * Persist the current in-memory cache to disk (lowdb) without touching Google Sheets.
+ */
+export async function writeCache() {
+    if (!db) await setUpAdapter();
+    await db.write();
+}
+
+export async function addSublevelRun(run) {
+    if (!db.data.sublevelRuns) db.data.sublevelRuns = [];
+    db.data.sublevelRuns.push(run);
+
+    // Update elevator unlocks (global deepest floor reached)
+    if (!db.data.sublevelElevator) db.data.sublevelElevator = { deepest: 0, totalRuns: 0, totalFloors: 0 };
+    const elevator = db.data.sublevelElevator;
+    elevator.totalRuns++;
+    elevator.totalFloors += run.floors;
+    if (run.floors > elevator.deepest) elevator.deepest = run.floors;
+
+    await db.write();
+}
+
+export function getSublevelElevator() {
+    if (!db.data.sublevelElevator) return { deepest: 0, totalRuns: 0, totalFloors: 0 };
+    return db.data.sublevelElevator;
+}
+
+/**
+ * Adds an inventory row to the sheet (append-only, safe),
+ * then consolidates the in-memory cache so lookups stay clean.
+ * The sheet keeps the full transaction log; the cache holds net totals.
+ */
+export async function addInventoryRow(newRowData) {
+    // Normalize 'name' key to 'mun' for consistency
+    if (newRowData.name && !newRowData.mun) {
+        newRowData.mun = newRowData.name;
+        delete newRowData.name;
+    }
+
+    // Append to sheet (single safe API call, same as addData)
+    const sheetName = getSheetName('inventory');
+    const sheetTable = await SheetTable.init('inventory', sheetName, SHEET_RANGES.find(table => table.sheet === sheetName).range);
+    sheetTable.appendRow([newRowData.id, newRowData.mun, newRowData.item, newRowData.amount, newRowData.date]);
+
+    // Add to cache then consolidate in-memory only
+    db.data.inventory.push(newRowData);
+    consolidateInventoryCache();
+    await db.write();
+}
+
+/**
+ * Consolidates all inventory cache rows: groups by (user ID + item),
+ * sums amounts, and removes entries that are 0 or below.
+ */
+function consolidateInventoryCache() {
+    const inventory = db.data.inventory;
+    const consolidated = new Map();
+
+    for (const row of inventory) {
+        const key = `${row.id}|${row.item}`;
+        const munName = row.mun || row.name;
+        const amt = parseInt(row.amount);
+        if (isNaN(amt)) continue;
+
+        if (consolidated.has(key)) {
+            const existing = consolidated.get(key);
+            existing.amount = String(parseInt(existing.amount) + amt);
+            existing.date = row.date;
+        } else {
+            consolidated.set(key, {
+                id: row.id,
+                mun: munName,
+                item: row.item,
+                amount: String(amt),
+                date: row.date
+            });
+        }
+    }
+
+    db.data.inventory = [...consolidated.values()].filter(
+        row => parseInt(row.amount) > 0
+    );
 }

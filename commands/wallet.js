@@ -57,4 +57,17 @@ export default{
         await mainFunction(interaction);
 
     },
+    async executePrefix(message) {
+        const user = message.mentions.users.first() || message.author;
+        const allMuns = await getTableData('muns');
+        const munData = allMuns.find(row => row.id === user.id);
+        if (!munData) {
+            await message.reply("Couldn't find that user's profile!");
+            return;
+        }
+        const mun = new Mun(munData.name);
+        const embed = basicEmbed(`${mun.name}'s Wallet`, `💰 \`${mun.scrip}\` scrip`, '', '', '', false);
+        embed.setColor("#acd46e");
+        await message.reply({ embeds: [embed] });
+    },
 }

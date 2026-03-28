@@ -2,9 +2,11 @@ import 'discord.js'
 import { Client, Collection, Events, GatewayIntentBits, MessageFlags, REST, Routes } from 'discord.js'
 import 'dotenv/config';
 import { dynamicImport } from './dynamic-import.js';
-import { cacheAllData } from './utility/access_data.js';
+import { initCache } from './utility/access_data.js';
+import { restoreActiveRuns } from './utility/sublevel_handler.js';
 
-await cacheAllData(true);
+await initCache();
+restoreActiveRuns();
 
 //#region Handle discord commands and events
 const client = new Client({

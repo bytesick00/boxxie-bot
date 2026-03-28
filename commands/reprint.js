@@ -2,6 +2,7 @@ import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { TextDisplayBuilder, ThumbnailBuilder, SectionBuilder, ContainerBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { Character, getFlavorText } from '../utility/classes.js';
 import { getTableData } from '../utility/access_data.js';
+import { basicEmbed } from '../utility/format_embed.js';
 // import { AB_DATA } from '../initialize-data.js';
 
 // let compMessage = AB_DATA.getFlavorText("Reprint_Warning");
@@ -148,4 +149,43 @@ export default{
         }
 		await interaction.respond(filtered.map((choice) => ({ name: choice, value: choice })));
 	},
-} 
+    async executePrefix(message, args) {
+        if (!args) {
+            await message.reply('Usage: `!reprint <oc name>`');
+            return;
+        }
+        const ocName = args.trim();
+        let characterInfo;
+        try {
+            characterInfo = new Character(ocName);
+        } catch {
+            await message.reply(`Couldn't find an OC named "${ocName}".`);
+            return;
+        }
+        let compMessage = getFlavorText('Reprint_Warning').replace('[OC_NAME]', ocName);
+        const embed = basicEmbed('REPRINT?', compMessage, 'https://images.unsplash.com/photo-1605364850023-a917c39f8fe9?q=80&w=1201&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setStyle(ButtonStyle.Primary).setLabel('Reprint \uD83D\uDDA8\uFE0F').setCustomId('confirm'),
+            new ButtonBuilder().setStyle(ButtonStyle.Secondary).setLabel('Never mind \uD83D\uDEAB').setCustomId('cancel'),
+        );
+        const reply = await message.reply({ embeds: [embed], components: [row] });
+        try {
+            const confirmation = await reply.awaitMessageComponent({
+                filter: i => i.user.id === message.author.id,
+                time: 60_000,
+            });
+            if (confirmation.customId === 'confirm') {
+                const error = await characterInfo.reprint();
+                if (error) {
+                    await confirmation.update({ embeds: [basicEmbed('Reprint Error', `While reprinting ${ocName}, something went wrong! They experienced a REPRINTING ERROR.`)], components: [] });
+                } else {
+                    await confirmation.update({ embeds: [basicEmbed('Reprint Complete', `${ocName} has been reprinted without error. Happy printday! \uD83C\uDF89`)], components: [] });
+                }
+            } else {
+                await confirmation.update({ embeds: [basicEmbed('Reprint Cancelled', '\uD83D\uDDD1\uFE0F Reprint was cancelled!')], components: [] });
+            }
+        } catch {
+            await reply.edit({ components: [] }).catch(() => {});
+        }
+    },
+}

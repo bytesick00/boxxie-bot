@@ -5,4 +5,7 @@ export default {
 	async execute(interaction) {
 		await interaction.reply('Pong!');
 	},
+	async executePrefix(message) {
+		await message.reply('Pong!');
+	},
 }

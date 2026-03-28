@@ -11,7 +11,7 @@ import {
   StringSelectMenuOptionBuilder,
 } from "discord.js";
 import { StringSelectMenuBuilder } from "discord.js";
-import { Inventory, Item } from "./classes.js";
+import { Inventory } from "./classes.js";
 import { getData } from "./access_data.js";
 
 /**
@@ -41,18 +41,24 @@ export function getBuyConfirmContainer(
     .replace("[PRICE]", `${itemPrice} scrip`);
   message2 = message2.replace("[BALANCE]", currentBalance);
 
+  const container = new ContainerBuilder().setAccentColor(11326574);
+  const textComponents = [
+    new TextDisplayBuilder().setContent("## Confirm Purchase"),
+    new TextDisplayBuilder().setContent(message1),
+    new TextDisplayBuilder().setContent(message2),
+  ];
+  if (itemThumb) {
+    container.addSectionComponents(
+      new SectionBuilder()
+        .setThumbnailAccessory(new ThumbnailBuilder().setURL(itemThumb))
+        .addTextDisplayComponents(...textComponents),
+    );
+  } else {
+    container.addTextDisplayComponents(...textComponents);
+  }
+
   const buyConfirmContainer = [
-    new ContainerBuilder()
-      .setAccentColor(11326574)
-      .addSectionComponents(
-        new SectionBuilder()
-          .setThumbnailAccessory(new ThumbnailBuilder().setURL(itemThumb))
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent("## Confirm Purchase"),
-            new TextDisplayBuilder().setContent(message1),
-            new TextDisplayBuilder().setContent(message2),
-          ),
-      ),
+    container,
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setStyle(ButtonStyle.Secondary)
@@ -90,7 +96,6 @@ export function getItemInfoContainer(
   itemDesc,
   itemThumb,
   itemType,
-  inventoryBool = false,
 ) {
   const message1 = "## [ITEM_NAME]".replace("[ITEM_NAME]", itemName);
   const message2 = "**Price:** `[ITEM_PRICE] scrip`\n**Type:** `[ITEM_TYPE]`".replace(
@@ -107,52 +112,27 @@ export function getItemInfoContainer(
         name: "🛒",
       })
       .setCustomId("shop"),
-    new ButtonBuilder()
-      .setStyle(ButtonStyle.Secondary)
-      .setLabel("Buy")
-      .setEmoji({
-        name: "💸",
-      })
-      .setCustomId("buy"),
   );
 
-  const invButtons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setStyle(ButtonStyle.Primary)
-      .setLabel("Back to Inventory")
-      .setEmoji({
-        name: "💼",
-      })
-      .setCustomId("inventory"),
-    new ButtonBuilder()
-      .setStyle(ButtonStyle.Secondary)
-      .setLabel("Use Item")
-      .setEmoji({
-        name: "🫳",
-      })
-      .setCustomId("use"),
-  );
-
-  let buttonsToAdd;
-  if (inventoryBool) {
-    buttonsToAdd = invButtons;
+  const infoContainer = new ContainerBuilder().setAccentColor(11326574);
+  const infoTexts = [
+    new TextDisplayBuilder().setContent(message1),
+    new TextDisplayBuilder().setContent(message2),
+    new TextDisplayBuilder().setContent(message3),
+  ];
+  if (itemThumb) {
+    infoContainer.addSectionComponents(
+      new SectionBuilder()
+        .setThumbnailAccessory(new ThumbnailBuilder().setURL(itemThumb))
+        .addTextDisplayComponents(...infoTexts),
+    );
   } else {
-    buttonsToAdd = shopButtons;
+    infoContainer.addTextDisplayComponents(...infoTexts);
   }
 
   const itemInfoComponents = [
-    new ContainerBuilder()
-      .setAccentColor(11326574)
-      .addSectionComponents(
-        new SectionBuilder()
-          .setThumbnailAccessory(new ThumbnailBuilder().setURL(itemThumb))
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(message1),
-            new TextDisplayBuilder().setContent(message2),
-            new TextDisplayBuilder().setContent(message3),
-          ),
-      ),
-    buttonsToAdd,
+    infoContainer,
+    shopButtons,
   ];
 
   return itemInfoComponents;
@@ -165,54 +145,172 @@ export function getItemInfoContainer(
  * @param {Inventory} inventory
  * @returns {ContainerBuilder[]}
  */
-export function getInventoryComponents(inventory) {
-  const itemTemplate = "**`[ITEM_NAME][TAB_SPACE]`**📦**`QTY: [QTY]`**\n";
-  let icItems = "";
-  let oocItems = "";
+const CATEGORY_EMOJI = {
+  Consumable: "🍔",
+  Collectable: "⭐",
+  Equipment: "🛡️",
+  Quest: "📜",
+  Treasure: "💎",
+  Usable: "🧪",
+  "???": "❓",
+};
 
-  for (const item of inventory.items) {
-    const charLimit = 30;
-    let tabSpace = " ";
-    if (item.item.length < charLimit) {
-      tabSpace = " ".repeat(charLimit - item.item.length);
-    }
+const ITEMS_PER_PAGE = 20;
 
-    const thisItemRow = itemTemplate
-      .replace("[ITEM_NAME]", item.item)
-      .replace("[QTY]", item.quantity)
-      .replace("[TAB_SPACE]", tabSpace);
+function getCategoryEmoji(type, shop) {
+  if (shop === "OOC") return "🎁";
+  return CATEGORY_EMOJI[type] || "❓";
+}
 
+function formatItemRow(name, quantity, emoji) {
+  const charLimit = 30;
+  let tabSpace = " ";
+  if (name.length < charLimit) {
+    tabSpace = " ".repeat(charLimit - name.length);
+  }
+  return `**\`${name}${tabSpace}\`**${emoji}**\`QTY: ${quantity}\`**`;
+}
+
+const CATEGORY_ORDER = ["Consumable", "Collectable", "Usable", "Equipment", "Quest", "Treasure", "???", "OOC"];
+
+function sortItems(items, sort) {
+  switch (sort) {
+    case "amount":
+      return [...items].sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name));
+    case "category":
+      return [...items].sort((a, b) => {
+        const catA = a.isOOC ? "OOC" : a.type;
+        const catB = b.isOOC ? "OOC" : b.type;
+        const diff = CATEGORY_ORDER.indexOf(catA) - CATEGORY_ORDER.indexOf(catB);
+        return diff !== 0 ? diff : a.name.localeCompare(b.name);
+      });
+    default: // "alpha"
+      return [...items].sort((a, b) => a.name.localeCompare(b.name));
+  }
+}
+
+export function getInventoryComponents(inventory, filter = "ALL", page = 0, sort = "alpha") {
+  // Build items with metadata
+  const allItems = inventory.items.map((item) => {
     const itemData = getData("shop", "name", item.item);
-    if (itemData.shop === "IC") {
-      icItems = icItems + thisItemRow;
-    } else {
-      oocItems = oocItems + thisItemRow;
+    const type = itemData?.type || "???";
+    const shop = itemData?.shop || "";
+    return {
+      name: item.item,
+      quantity: item.quantity,
+      type,
+      shop,
+      isOOC: shop === "OOC",
+      emoji: getCategoryEmoji(type, shop),
+    };
+  });
+
+  // Sort items
+  const sortedItems = sortItems(allItems, sort);
+
+  // Determine which categories the user owns
+  const ownedTypes = new Set(sortedItems.map((i) => i.isOOC ? "OOC" : i.type));
+
+  // Build filter dropdown: ALL + owned categories
+  const allCategories = ["Consumable", "Collectable", "Usable", "Equipment", "Quest", "Treasure", "???", "OOC"];
+  const dropdownOptions = [
+    new StringSelectMenuOptionBuilder()
+      .setLabel("All")
+      .setValue("ALL")
+      .setDefault(filter === "ALL"),
+  ];
+  for (const cat of allCategories) {
+    if (ownedTypes.has(cat)) {
+      const label = cat === "OOC" ? "Out of Character" : cat;
+      dropdownOptions.push(
+        new StringSelectMenuOptionBuilder()
+          .setLabel(label)
+          .setValue(cat)
+          .setDefault(filter === cat),
+      );
     }
   }
 
-  if (icItems === "") {
-    icItems = "None! 🫗";
+  // Filter
+  let filteredItems;
+  if (filter === "ALL") {
+    filteredItems = sortedItems;
+  } else if (filter === "OOC") {
+    filteredItems = sortedItems.filter((i) => i.isOOC);
+  } else {
+    filteredItems = sortedItems.filter((i) => !i.isOOC && i.type === filter);
   }
 
-  if (oocItems === "") {
-    oocItems = "None! 🫗";
-  }
+  // Pagination
+  const totalItems = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+  const safePage = Math.max(0, Math.min(page, totalPages - 1));
+  const pageItems = filteredItems.slice(
+    safePage * ITEMS_PER_PAGE,
+    (safePage + 1) * ITEMS_PER_PAGE,
+  );
 
-  const components = [
-    new ContainerBuilder()
-      .setAccentColor(11326574)
-      .addSectionComponents(
-        new SectionBuilder()
-          .setThumbnailAccessory(
-            new ThumbnailBuilder().setURL(
-              "https://64.media.tumblr.com/001a50cc48cfc6cda2e43a94150775c9/fdef8914977fe4e2-13/s1280x1920/7f20f4205ac63c95baeee7d8d497aa8e6e780d65.jpg",
-            ),
-          )
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`## ${inventory.mun.name}'s Inventory`),
-            new TextDisplayBuilder().setContent("**```IN CHARACTER ITEMS```**"),
-            new TextDisplayBuilder().setContent(icItems),
-          ),
+  const pageLabel = `Page ${safePage + 1}/${totalPages} · ${totalItems} item${totalItems !== 1 ? "s" : ""}`;
+
+  // Navigation buttons
+  const navRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji({ name: "◀️" })
+      .setCustomId("invPrev")
+      .setDisabled(safePage === 0),
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Secondary)
+      .setLabel(pageLabel)
+      .setCustomId("invPageInfo")
+      .setDisabled(true),
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji({ name: "▶️" })
+      .setCustomId("invNext")
+      .setDisabled(safePage >= totalPages - 1),
+  );
+
+  // Sort buttons
+  const sortRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setStyle(sort === "alpha" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji({ name: "🔤" })
+      .setCustomId("sortAlpha"),
+    new ButtonBuilder()
+      .setStyle(sort === "amount" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji({ name: "🔢" })
+      .setCustomId("sortAmount"),
+    new ButtonBuilder()
+      .setStyle(sort === "category" ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setEmoji({ name: "🏷️" })
+      .setCustomId("sortCategory"),
+  );
+
+  const container = new ContainerBuilder()
+    .setAccentColor(11326574)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## ${inventory.mun.name}'s Inventory`,
+      ),
+    );
+
+  if (filter === "ALL") {
+    // Show IC / OOC split
+    const icItems = pageItems.filter((i) => !i.isOOC);
+    const oocItems = pageItems.filter((i) => i.isOOC);
+
+    let icText = icItems.map((i) => formatItemRow(i.name, i.quantity, i.emoji)).join("\n");
+    let oocText = oocItems.map((i) => formatItemRow(i.name, i.quantity, i.emoji)).join("\n");
+    if (icText === "") icText = "None! 🫗";
+    if (oocText === "") oocText = "None! 🫗";
+
+    container
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent("**```IN CHARACTER ITEMS```**"),
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(icText),
       )
       .addSeparatorComponents(
         new SeparatorBuilder()
@@ -222,26 +320,27 @@ export function getInventoryComponents(inventory) {
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent("**```OUT OF CHARACTER ITEMS```**"),
       )
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(oocItems)),
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(oocText),
+      );
+  } else {
+    // Filtered to a single category — no header needed
+    let itemsText = pageItems.map((i) => formatItemRow(i.name, i.quantity, i.emoji)).join("\n");
+    if (itemsText === "") itemsText = "None! 🫗";
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(itemsText),
+    );
+  }
+
+  const components = [
+    container,
+    navRow,
+    sortRow,
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setStyle(ButtonStyle.Primary)
-        .setLabel("Use an Item")
-        .setEmoji({
-          name: "🫳",
-        })
-        .setCustomId("use"),
-      new ButtonBuilder()
-        .setStyle(ButtonStyle.Secondary)
-        .setLabel("Get an Item's Info")
-        .setEmoji({
-          name: "🔍",
-        })
-        .setCustomId("info"),
-      new ButtonBuilder()
-        .setStyle(ButtonStyle.Danger)
-        .setLabel("Close Inventory")
-        .setCustomId("close"),
+      new StringSelectMenuBuilder()
+        .setCustomId("inventoryCategory")
+        .setPlaceholder("Filter by category")
+        .addOptions(dropdownOptions),
     ),
   ];
 
@@ -277,19 +376,25 @@ export function getConfirmUseComponents(
   );
   const message2 = "> 📦**CURRENT QUANTITY:** [QTY]".replace("[QTY]", quantity);
 
+  const useContainer = new ContainerBuilder().setAccentColor(11326574);
+  const useTexts = [
+    new TextDisplayBuilder().setContent("## Use Item?"),
+    new TextDisplayBuilder().setContent(message1),
+    new TextDisplayBuilder().setContent(warningMessage),
+  ];
+  if (itemThumb) {
+    useContainer.addSectionComponents(
+      new SectionBuilder()
+        .setThumbnailAccessory(new ThumbnailBuilder().setURL(itemThumb))
+        .addTextDisplayComponents(...useTexts),
+    );
+  } else {
+    useContainer.addTextDisplayComponents(...useTexts);
+  }
+  useContainer.addTextDisplayComponents(new TextDisplayBuilder().setContent(message2));
+
   const confirmComponent = [
-    new ContainerBuilder()
-      .setAccentColor(11326574)
-      .addSectionComponents(
-        new SectionBuilder()
-          .setThumbnailAccessory(new ThumbnailBuilder().setURL(itemThumb))
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent("## Use Item?"),
-            new TextDisplayBuilder().setContent(message1),
-            new TextDisplayBuilder().setContent(warningMessage),
-          ),
-      )
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(message2)),
+    useContainer,
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setStyle(ButtonStyle.Secondary)
@@ -311,26 +416,108 @@ export function getConfirmUseComponents(
   return confirmComponent;
 }
 
-export function getChooseItem(allItemNames) {
-  const choices = [];
-  for (const itemName of allItemNames) {
-    const item = new Item(itemName);
-    const itemDesc = `${item.shop} item | ${item.type}`;
-    const option = new StringSelectMenuOptionBuilder()
-      .setLabel(item.name)
-      .setValue(item.name)
-      .setDescription(itemDesc);
-    choices.push(option);
+/**
+ * Builds a paginated select menu for any list of items.
+ * Handles collections beyond Discord's 25-option limit.
+ *
+ * @param {Object} options
+ * @param {Array<{label: string, value: string, description?: string}>} options.items
+ * @param {number} [options.page=1] Current page (1-indexed)
+ * @param {number} [options.pageSize=25] Items per page (capped at 25)
+ * @param {string} options.selectId Custom ID for the select menu
+ * @param {string} [options.placeholder] Placeholder text
+ * @returns {{ selectRow: ActionRowBuilder, navRow: ActionRowBuilder|null, totalPages: number, pageItems: Array, currentPage: number }}
+ */
+export function buildPaginatedItemSelect({
+  items,
+  page = 1,
+  pageSize = 25,
+  selectId,
+  placeholder = "Select an item...",
+}) {
+  const effectivePageSize = Math.min(pageSize, 25);
+  const totalPages = Math.max(1, Math.ceil(items.length / effectivePageSize));
+  const safePage = Math.max(1, Math.min(page, totalPages));
+
+  const start = (safePage - 1) * effectivePageSize;
+  const pageItems = items.slice(start, start + effectivePageSize);
+
+  const selectMenu = new StringSelectMenuBuilder()
+    .setCustomId(selectId)
+    .setPlaceholder(placeholder)
+    .setMinValues(1)
+    .setMaxValues(1);
+
+  if (pageItems.length > 0) {
+    selectMenu.addOptions(
+      pageItems.map((item) => {
+        const opt = { label: item.label, value: item.value };
+        if (item.description) opt.description = item.description.slice(0, 100);
+        return opt;
+      }),
+    );
   }
 
-  return [
-    new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId("useItem")
-        .setPlaceholder("Choose an item")
-        .addOptions(choices),
-    ),
-  ];
+  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+
+  let navRow = null;
+  if (totalPages > 1) {
+    navRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Secondary)
+        .setLabel("\u2039 Back")
+        .setCustomId("page_back")
+        .setDisabled(safePage === 1),
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Secondary)
+        .setLabel(`${safePage}/${totalPages}`)
+        .setCustomId("page_indicator")
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setStyle(ButtonStyle.Secondary)
+        .setLabel("Next \u203A")
+        .setCustomId("page_next")
+        .setDisabled(safePage === totalPages),
+    );
+  }
+
+  return { selectRow, navRow, totalPages, pageItems, currentPage: safePage };
+}
+
+/**
+ * Builds a row of category filter buttons.
+ * @param {Array<{label: string, value: string}>} categories
+ * @param {string} currentCategory
+ * @returns {ActionRowBuilder|null}
+ */
+export function buildCategoryFilterRow(categories, currentCategory = "ALL") {
+  if (categories.length <= 1) return null;
+
+  const buttons = categories.slice(0, 5).map((cat) =>
+    new ButtonBuilder()
+      .setStyle(cat.value === currentCategory ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setLabel(cat.label)
+      .setCustomId(`cat_${cat.value}`),
+  );
+
+  return new ActionRowBuilder().addComponents(buttons);
+}
+
+/**
+ * Improved autocomplete matching: prefix matches first, then contains matches.
+ * @param {string[]} choices
+ * @param {string} query
+ * @param {number} [limit=25]
+ * @returns {string[]}
+ */
+export function fuzzyMatchItems(choices, query, limit = 25) {
+  if (!query) return choices.slice(0, limit);
+  const lower = query.toLowerCase();
+  const prefixMatches = choices.filter((c) => c.toLowerCase().startsWith(lower));
+  const containsMatches = choices.filter(
+    (c) => !c.toLowerCase().startsWith(lower) && c.toLowerCase().includes(lower),
+  );
+  return [...prefixMatches, ...containsMatches].slice(0, limit);
 }
 
 export const errorComponent = [

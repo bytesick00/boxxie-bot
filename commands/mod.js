@@ -86,7 +86,7 @@ const registerSubcommand = new SlashCommandSubcommandBuilder()
     .setDescription('Register new commands')
 
 const testComp = new SlashCommandSubcommandBuilder()
-    .setName('test_comp')
+    .setName('testcomp')
     .setDescription('just testing shit lol')
 
 /**
@@ -104,7 +104,7 @@ async function mainFunction(interaction) {
             
             return await register(interaction);
         
-        case 'test_comp':
+        case 'testcomp':
             
             return await test_comp(interaction)
 
@@ -179,5 +179,35 @@ export default{
     data: commandBuilder,
     async execute(interaction) {
         await mainFunction(interaction);
+    },
+    async executePrefix(message, args) {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            await message.reply('You need administrator permissions to use this command!');
+            return;
+        }
+        const subcommand = args?.trim().split(/\s+/)[0]?.toLowerCase();
+        if (subcommand === 'register') {
+            const reply = await message.reply('Registering commands...');
+            await cacheAllData();
+            let invoked = false;
+            const registerPath = './deploy-commands.js';
+            const childProcess = fork(registerPath);
+            childProcess.on('error', function (err) {
+                if (invoked) return;
+                invoked = true;
+                reply.edit(`Error registering commands! ${err}`).catch(() => {});
+            });
+            childProcess.on('exit', function (code) {
+                if (invoked) return;
+                invoked = true;
+                if (code === 0) {
+                    reply.edit('Successfully registered commands!').catch(() => {});
+                } else {
+                    reply.edit(`Error registering commands! Exit code: ${code}`).catch(() => {});
+                }
+            });
+        } else {
+            await message.reply('Available subcommands: `register`');
+        }
     },
 }
