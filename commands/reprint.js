@@ -68,14 +68,6 @@ function setComponent(ocName){
 
 async function reprintMessage(interaction){
     const ocName = interaction.options.getString("oc");
-    const response = await interaction.reply({
-        components: setComponent(ocName),
-        flags: [ 
-            MessageFlags.IsComponentsV2
-        ],
-        withResponse: true,
-        }
-    );
 
     const reprintContent = `### ${ocName} has been reprinted without error. Happy printday! 🎉`;
     const errorContent = `\`\`\`While reprinting ${ocName}, something went wrong! They experienced a REPRINTING ERROR. You may decide the error for yourself, or you may roll 1d10 to pick an error from this table. Effects may be flavored however you like.\`\`\`\n**You come back from the printer...**\n> \`1.)\` - With a different hair and/or eye color.\n> \`2.)\` - 1d6 inches shorter.\n> \`3.)\` - 1d6 inches taller.\n> \`4.)\` - Differently colored blood.\n> \`5.)\` - With impaired functioning in part of their body.\n> \`6.)\` - With a seemingly permanent illness they didn't have before. \n> \`7.)\` - With sudden chronic pain.\n> \`8.)\` - With personality change. (Less irritable, etc.)\n> \`9.)\` - With a gap in their memory.\n> \`10.)\` - Missing part of their body.\`\`\`This error will impact you until your next reprinting.\`\`\``;
@@ -88,7 +80,6 @@ async function reprintMessage(interaction){
         )
     ];
 
-
     const errorMessage = [
         new ContainerBuilder()
             .setAccentColor(11326574)
@@ -97,30 +88,19 @@ async function reprintMessage(interaction){
             )
     ];
 
-    const collectorFilter = (i) => i.user.id === interaction.user.id;
-    try {
-        const confirmation = await response.resource.message.awaitMessageComponent({ filter: collectorFilter, time: 60_000 });
+    const characterObject = new Character(ocName);
+    const error = await characterObject.reprint();
 
-        if (confirmation.customId === 'confirm') {
-            const characterObject = new Character(ocName)
-            const error = await characterObject.reprint()
-
-            if(error){
-                interaction.editReply({
-                    components: errorMessage,
-                })
-            }
-            else{
-                interaction.editReply({
-                    components: reprintConfirmMessage,
-                })
-            }
-
-        } else if (confirmation.customId === 'cancel') {
-            await confirmation.editReply({components: cancelComponent});
-        }
-    } catch {
-        await interaction.editReply({components: cancelComponent});
+    if (error) {
+        await interaction.reply({
+            components: errorMessage,
+            flags: [MessageFlags.IsComponentsV2],
+        });
+    } else {
+        await interaction.reply({
+            components: reprintConfirmMessage,
+            flags: [MessageFlags.IsComponentsV2],
+        });
     }
 }
 
@@ -162,30 +142,11 @@ export default{
             await message.reply(`Couldn't find an OC named "${ocName}".`);
             return;
         }
-        let compMessage = getFlavorText('Reprint_Warning').replace('[OC_NAME]', ocName);
-        const embed = basicEmbed('REPRINT?', compMessage, 'https://images.unsplash.com/photo-1605364850023-a917c39f8fe9?q=80&w=1201&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setStyle(ButtonStyle.Primary).setLabel('Reprint \uD83D\uDDA8\uFE0F').setCustomId('confirm'),
-            new ButtonBuilder().setStyle(ButtonStyle.Secondary).setLabel('Never mind \uD83D\uDEAB').setCustomId('cancel'),
-        );
-        const reply = await message.reply({ embeds: [embed], components: [row] });
-        try {
-            const confirmation = await reply.awaitMessageComponent({
-                filter: i => i.user.id === message.author.id,
-                time: 60_000,
-            });
-            if (confirmation.customId === 'confirm') {
-                const error = await characterInfo.reprint();
-                if (error) {
-                    await confirmation.update({ embeds: [basicEmbed('Reprint Error', `While reprinting ${ocName}, something went wrong! They experienced a REPRINTING ERROR.`)], components: [] });
-                } else {
-                    await confirmation.update({ embeds: [basicEmbed('Reprint Complete', `${ocName} has been reprinted without error. Happy printday! \uD83C\uDF89`)], components: [] });
-                }
-            } else {
-                await confirmation.update({ embeds: [basicEmbed('Reprint Cancelled', '\uD83D\uDDD1\uFE0F Reprint was cancelled!')], components: [] });
-            }
-        } catch {
-            await reply.edit({ components: [] }).catch(() => {});
+        const error = await characterInfo.reprint();
+        if (error) {
+            await message.reply({ embeds: [basicEmbed('Reprint Error', `While reprinting ${ocName}, something went wrong! They experienced a REPRINTING ERROR.`)] });
+        } else {
+            await message.reply({ embeds: [basicEmbed('Reprint Complete', `${ocName} has been reprinted without error. Happy printday! \uD83C\uDF89`)] });
         }
     },
 }
