@@ -146,57 +146,16 @@ async function mainFunction(interaction) {
     return;
   }
 
-  const components = getSellConfirmContainer(
-    item.name,
-    quantity,
-    item.sellPrice,
-    mun.scrip,
-    item.image,
-  );
-
-  const reply = await interaction.editReply({
-    components: components,
-    flags: MessageFlags.IsComponentsV2,
-  });
-
-  // Wait for confirm / cancel
-  const collectorFilter = (i) => i.user.id === interaction.user.id;
-  let componentResponse;
   try {
-    try {
-      componentResponse = await reply.awaitMessageComponent({
-        filter: collectorFilter,
-        time: 900_000,
-      });
-    } catch {
-      componentResponse = await reply.resource.message.awaitMessageComponent({
-        filter: collectorFilter,
-        time: 900_000,
-      });
-    }
-  } catch {
-    return;
-  }
-
-  try {
-    if (componentResponse.customId === "confirm") {
-      // Remove item from inventory (negative quantity)
-      await inventory.addItem(itemName, -quantity);
-      // Add scrip
-      const sellTotal = item.sellPrice * quantity;
-      await mun.addScrip(sellTotal);
-      await componentResponse.update({
-        components: getSoldComponent(itemName, quantity, mun.scrip),
-        flags: MessageFlags.IsComponentsV2,
-        withResponse: false,
-      });
-    } else {
-      await componentResponse.update({
-        components: cancelComponent,
-        flags: MessageFlags.IsComponentsV2,
-        withResponse: false,
-      });
-    }
+    // Remove item from inventory (negative quantity)
+    await inventory.addItem(itemName, -quantity);
+    // Add scrip
+    const sellTotal = item.sellPrice * quantity;
+    await mun.addScrip(sellTotal);
+    await interaction.editReply({
+      components: getSoldComponent(itemName, quantity, mun.scrip),
+      flags: MessageFlags.IsComponentsV2,
+    });
   } catch {
     await interaction.editReply({
       components: errorComponent,

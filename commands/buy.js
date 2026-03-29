@@ -107,71 +107,25 @@ async function mainFunction(interaction) {
   const munName = allMuns.find((row) => row.id === munID).name;
   const mun = new Mun(munName);
 
-  const components = getBuyConfirmContainer(
-    item.name,
-    quantity,
-    item.buyPrice,
-    mun.scrip,
-    item.image,
-  );
-
-  const reply = await interaction.editReply({
-    components: components,
-    flags: MessageFlags.IsComponentsV2,
-  });
-
-  // Wait for confirm / cancel
-  const collectorFilter = (i) => i.user.id === interaction.user.id;
-  let componentResponse;
   try {
-    try {
-      componentResponse = await reply.awaitMessageComponent({
-        filter: collectorFilter,
-        time: 900_000,
-      });
-    } catch {
-      componentResponse = await reply.resource.message.awaitMessageComponent({
-        filter: collectorFilter,
-        time: 900_000,
-      });
-    }
-  } catch {
-    return;
-  }
-
-  try {
-    if (componentResponse.customId === "confirm") {
-      try {
-        await (await mun.inventory).buyItem(itemName, quantity);
-        const newBalance = mun.scrip;
-        await componentResponse.update({
-          components: getPurchasedComponent(itemName, quantity, newBalance),
-          flags: MessageFlags.IsComponentsV2,
-          withResponse: false,
-        });
-      } catch (error) {
-        if (error.message === "Not enough scrip!") {
-          await componentResponse.update({
-            components: getScripErrorComponent(mun, quantity),
-            flags: MessageFlags.IsComponentsV2,
-            withResponse: false,
-          });
-        } else {
-          throw error;
-        }
-      }
-    } else {
-      await componentResponse.update({
-        components: cancelComponent,
-        flags: MessageFlags.IsComponentsV2,
-        withResponse: false,
-      });
-    }
-  } catch {
+    await (await mun.inventory).buyItem(itemName, quantity);
+    const newBalance = mun.scrip;
     await interaction.editReply({
-      components: errorComponent,
+      components: getPurchasedComponent(itemName, quantity, newBalance),
       flags: MessageFlags.IsComponentsV2,
     });
+  } catch (error) {
+    if (error.message === "Not enough scrip!") {
+      await interaction.editReply({
+        components: getScripErrorComponent(mun, quantity),
+        flags: MessageFlags.IsComponentsV2,
+      });
+    } else {
+      await interaction.editReply({
+        components: errorComponent,
+        flags: MessageFlags.IsComponentsV2,
+      });
+    }
   }
 }
 
