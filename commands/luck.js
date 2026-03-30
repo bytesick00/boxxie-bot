@@ -5,15 +5,12 @@ import {
   TextDisplayBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
-  SectionBuilder,
-  ThumbnailBuilder,
 } from "discord.js";
 import {
   activeRuns,
   updateTrackerPost,
   persistActiveRuns,
 } from "../utility/sublevel_handler.js";
-import { Character } from "../utility/classes.js";
 import { basicEmbed } from "../utility/format_embed.js";
 
 const commandBuilder = new SlashCommandBuilder()
@@ -118,39 +115,16 @@ export default {
     const verb = type === "add" ? "gained" : "lost";
     const arrow = type === "add" ? "⬆️" : "⬇️";
 
-    let image = "";
-    try {
-      const character = new Character(characterName);
-      image = character.image || "";
-    } catch {
-      /* no image */
-    }
-
     const container = new ContainerBuilder().setAccentColor(11326574);
 
-    if (image) {
-      container.addSectionComponents(
-        new SectionBuilder()
-          .setThumbnailAccessory(new ThumbnailBuilder().setURL(image))
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              `## ${emoji} Luck ${type === "add" ? "Increased" : "Decreased"}!`,
-            ),
-            new TextDisplayBuilder().setContent(
-              `**${characterName}** ${verb} **${amount}** luck!`,
-            ),
-          ),
-      );
-    } else {
-      container.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## ${emoji} Luck ${type === "add" ? "Increased" : "Decreased"}!`,
-        ),
-        new TextDisplayBuilder().setContent(
-          `**${characterName}** ${verb} **${amount}** luck!`,
-        ),
-      );
-    }
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## ${emoji} Luck ${type === "add" ? "Increased" : "Decreased"}!`,
+      ),
+      new TextDisplayBuilder().setContent(
+        `**${characterName}** ${verb} **${amount}** luck!`,
+      ),
+    );
 
     container.addSeparatorComponents(
       new SeparatorBuilder()
@@ -236,18 +210,10 @@ export default {
     const verb = type === "add" ? "gained" : "lost";
     const arrow = type === "add" ? "⬆️" : "⬇️";
 
-    let image = "";
-    try {
-      image = new Character(characterName).image || "";
-    } catch {
-      /* no image */
-    }
-
     const description = `**${characterName}** ${verb} **${amount}** luck!\n${arrow} **Luck:** \`${result.oldLuck}\` ➡️ \`${result.newLuck}\``;
     const embed = basicEmbed(
       `${emoji} Luck ${type === "add" ? "Increased" : "Decreased"}!`,
       description,
-      image,
     );
     await message.reply({ embeds: [embed] });
 

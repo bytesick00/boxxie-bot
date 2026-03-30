@@ -7,7 +7,6 @@ import {
     SeparatorSpacingSize,
 } from 'discord.js';
 import { parseDice, applyHPChange, activeRuns, updateTrackerPost } from '../utility/sublevel_handler.js';
-import { Character } from '../utility/classes.js';
 import { basicEmbed } from '../utility/format_embed.js';
 import { getCustomCommandContent } from '../utility/custom_commands.js';
 
@@ -126,12 +125,6 @@ export default {
             ? `${parsed.rolls.map(r => `**\`${r}\`**`).join(' ')} = **${parsed.total}**`
             : `**${parsed.total}**`;
 
-        let image = '';
-        try {
-            const character = new Character(characterName);
-            image = character.image || '';
-        } catch { /* no image */ }
-
         const container = new ContainerBuilder().setAccentColor(11326574);
 
         container.addTextDisplayComponents(
@@ -161,12 +154,12 @@ export default {
 
         // Zero HP — character is about to pass out
         if (result.hitZero) {
-            await sendZeroHPMessage(interaction.channel, characterName, image);
+            await sendZeroHPMessage(interaction.channel, characterName);
         }
 
         // Revived from 0 HP
         if (result.revived) {
-            await sendReviveMessage(interaction.channel, characterName, image);
+            await sendReviveMessage(interaction.channel, characterName);
         }
     },
 
@@ -221,8 +214,6 @@ export default {
             ? `${parsed.rolls.map(r => `**\`${r}\`**`).join(' ')} = **${parsed.total}**`
             : `**${parsed.total}**`;
         const description = `**${characterName}** ${verb} ${rollText} ${type === 'heal' ? 'healing' : 'damage'}!\n${arrow} **HP:** \`${result.oldHP}\` \u27A1\uFE0F \`${result.newHP}\``;
-        let image = '';
-        try { image = new Character(characterName).image || ''; } catch {}
         const embed = basicEmbed(`${emoji} HP ${type === 'heal' ? 'Healed' : 'Damaged'}!`, description);
         await message.reply({ embeds: [embed] });
         const run = activeRuns.get(message.channel.id);
@@ -230,12 +221,12 @@ export default {
 
         // Zero HP — character is about to pass out
         if (result.hitZero) {
-            await sendZeroHPMessage(message.channel, characterName, image);
+            await sendZeroHPMessage(message.channel, characterName);
         }
 
         // Revived from 0 HP
         if (result.revived) {
-            await sendReviveMessage(message.channel, characterName, image);
+            await sendReviveMessage(message.channel, characterName);
         }
     },
 };
@@ -243,24 +234,23 @@ export default {
 /**
  * Sends the zero-HP "about to pass out" message using flavor text from the "zerohp" custom command.
  */
-async function sendZeroHPMessage(channel, characterName, image) {
-    let flavorText = '';
+async function sendZeroHPMessage(channel, characterName) {
+    let title = '💀 Zero HP!';
     try {
         const content = await getCustomCommandContent('zerohp');
         if (content && content.content) {
-            flavorText = content.content;
+            title = content.content;
         } else if (content && content.embeds && content.embeds.length > 0) {
-            flavorText = content.embeds[0].data?.description || '';
+            title = content.embeds[0].data?.description || title;
         } else if (typeof content === 'string') {
-            flavorText = content;
+            title = content;
         }
     } catch { /* no custom command found */ }
 
-    const description = `**${characterName}** is about to pass out.`
-        + (flavorText ? `\n\n${flavorText}` : '');
+    const description = `**${characterName}** is about to pass out.`;
 
-    const embed = basicEmbed('💀 Zero HP!', description, image);
-    embed.setFooter({ text: `${characterName} hit zero HP` });
+    const embed = basicEmbed(title, description);
+    embed.setFooter({ text: 'this character can no longer participate in rooms and must be carried forward.' });
 
     await channel.send({ embeds: [embed] });
 }
@@ -268,23 +258,22 @@ async function sendZeroHPMessage(channel, characterName, image) {
 /**
  * Sends the revive message when a character is healed from 0 HP, using flavor text from the "revivehp" custom command.
  */
-async function sendReviveMessage(channel, characterName, image) {
-    let flavorText = '';
+async function sendReviveMessage(channel, characterName) {
+    let title = '💖 Revived!';
     try {
         const content = await getCustomCommandContent('revivehp');
         if (content && content.content) {
-            flavorText = content.content;
+            title = content.content;
         } else if (content && content.embeds && content.embeds.length > 0) {
-            flavorText = content.embeds[0].data?.description || '';
+            title = content.embeds[0].data?.description || title;
         } else if (typeof content === 'string') {
-            flavorText = content;
+            title = content;
         }
     } catch { /* no custom command found */ }
 
-    const description = `**${characterName}** ${flavorText || 'has been revived!'}`;
+    const description = `**${characterName}** was revived!`;
 
-    const embed = basicEmbed('💖 Revived!', description, image);
-    embed.setFooter({ text: `${characterName} was revived` });
+    const embed = basicEmbed(title, description);
 
     await channel.send({ embeds: [embed] });
 }
