@@ -352,8 +352,11 @@ async function handleSecretButton(interaction, storeId) {
     // Check if there are slots left
     if (payload.claimedBy.length >= payload.maxClaims) {
         const names = payload.claimedBy.map(c => c.name).join(', ');
+        const prefix = '🔒 This secret has already been claimed by: ';
+        const maxLen = 2000 - prefix.length;
+        const safeName = names.length <= maxLen ? names : names.slice(0, maxLen - 3) + '...';
         await interaction.reply({
-            content: `🔒 This secret has already been claimed by: ${names}`,
+            content: `${prefix}${safeName}`,
             ephemeral: true,
         });
         return;
