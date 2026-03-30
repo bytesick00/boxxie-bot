@@ -5,8 +5,6 @@ import {
     TextDisplayBuilder,
     SeparatorBuilder,
     SeparatorSpacingSize,
-    SectionBuilder,
-    ThumbnailBuilder,
 } from 'discord.js';
 import { parseDice, applyHPChange, activeRuns, updateTrackerPost } from '../utility/sublevel_handler.js';
 import { Character } from '../utility/classes.js';
@@ -136,25 +134,12 @@ export default {
 
         const container = new ContainerBuilder().setAccentColor(11326574);
 
-        if (image) {
-            container.addSectionComponents(
-                new SectionBuilder()
-                    .setThumbnailAccessory(new ThumbnailBuilder().setURL(image))
-                    .addTextDisplayComponents(
-                        new TextDisplayBuilder().setContent(`## ${emoji} HP ${type === 'heal' ? 'Healed' : 'Damaged'}!`),
-                        new TextDisplayBuilder().setContent(
-                            `**${characterName}** ${verb} ${rollText} ${type === 'heal' ? 'healing' : 'damage'}!`
-                        ),
-                    )
-            );
-        } else {
-            container.addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(`## ${emoji} HP ${type === 'heal' ? 'Healed' : 'Damaged'}!`),
-                new TextDisplayBuilder().setContent(
-                    `**${characterName}** ${verb} ${rollText} ${type === 'heal' ? 'healing' : 'damage'}!`
-                ),
-            );
-        }
+        container.addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`## ${emoji} HP ${type === 'heal' ? 'Healed' : 'Damaged'}!`),
+            new TextDisplayBuilder().setContent(
+                `**${characterName}** ${verb} ${rollText} ${type === 'heal' ? 'healing' : 'damage'}!`
+            ),
+        );
 
         container.addSeparatorComponents(
             new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
@@ -238,7 +223,7 @@ export default {
         const description = `**${characterName}** ${verb} ${rollText} ${type === 'heal' ? 'healing' : 'damage'}!\n${arrow} **HP:** \`${result.oldHP}\` \u27A1\uFE0F \`${result.newHP}\``;
         let image = '';
         try { image = new Character(characterName).image || ''; } catch {}
-        const embed = basicEmbed(`${emoji} HP ${type === 'heal' ? 'Healed' : 'Damaged'}!`, description, image);
+        const embed = basicEmbed(`${emoji} HP ${type === 'heal' ? 'Healed' : 'Damaged'}!`, description);
         await message.reply({ embeds: [embed] });
         const run = activeRuns.get(message.channel.id);
         if (run) await updateTrackerPost(message.channel, run);

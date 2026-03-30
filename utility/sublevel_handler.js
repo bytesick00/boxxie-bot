@@ -13,6 +13,7 @@ import {
 } from 'discord.js';
 import { getData, getTableData, saveActiveRuns, loadActiveRuns } from './access_data.js';
 import { Character } from './classes.js';
+import { getCustomCommandContent } from './custom_commands.js';
 
 // ---- Active runs per channel ----
 // Key: channelId, Value: { floors, finalized, characters, startMessageId }
@@ -76,9 +77,9 @@ function rollDie(sides) {
  */
 export function parseDice(input) {
     const trimmed = input.trim();
-    const diceMatch = trimmed.match(/^(\d+)d(\d+)$/i);
+    const diceMatch = trimmed.match(/^(\d*)d(\d+)$/i);
     if (diceMatch) {
-        const count = parseInt(diceMatch[1]);
+        const count = diceMatch[1] ? parseInt(diceMatch[1]) : 1;
         const sides = parseInt(diceMatch[2]);
         if (count < 1 || count > 100 || sides < 1 || sides > 1000) return null;
         const rolls = [];
@@ -146,6 +147,12 @@ function buildTrackerMessage(run) {
             .setLabel('Remove Character')
             .setEmoji({ name: '➖' })
             .setCustomId('sl:remove'),
+        new ButtonBuilder()
+            .setStyle(ButtonStyle.Primary)
+            .setLabel('Start Run')
+            .setEmoji({ name: '🚀' })
+            .setCustomId('sl:startrun')
+            .setDisabled(run.characters.size === 0),
     );
 
     return {
@@ -186,6 +193,41 @@ export async function handleSublevelInteraction(interaction) {
     const run = activeRuns.get(channelId);
 
     try {
+        // ---- Start Run button → post level descriptor ----
+        if (customId === 'sl:startrun') {
+            if (!run) {
+                await interaction.reply({ content: 'No active sublevel run in this channel!', ephemeral: true });
+                return true;
+            }
+            if (run.characters.size === 0) {
+                await interaction.reply({ content: 'Register at least one character before starting!', ephemeral: true });
+                return true;
+            }
+
+            const level = run.level || 'depth1';
+            const commandName = `sublevels_${level}`;
+            const content = await getCustomCommandContent(commandName, interaction.user.id);
+
+            if (content && !content.editIn) {
+                await interaction.reply(content);
+            } else if (content && content.editIn) {
+                const sendOptions = {};
+                if (content.editIn.initialContent) sendOptions.content = content.editIn.initialContent;
+                if (content.image) sendOptions.files = [{ attachment: content.image }];
+                const reply = await interaction.reply({ ...sendOptions, fetchReply: true });
+                await new Promise(resolve => setTimeout(resolve, content.editIn.delayMs));
+                const editOptions = { embeds: [content.editIn.embed] };
+                if (content.editIn.components && content.editIn.components.length > 0) {
+                    editOptions.components = content.editIn.components;
+                }
+                await reply.edit(editOptions);
+            } else {
+                await interaction.reply(`🏢 Starting from level: **${level}**`);
+            }
+
+            return true;
+        }
+
         // ---- Register Character button → opens modal ----
         if (customId === 'sl:register') {
             if (!run) {
@@ -219,18 +261,33 @@ export async function handleSublevelInteraction(interaction) {
             const typed = interaction.fields.getTextInputValue('sl:modal:charname').trim();
             const activeOCs = getActiveOCs();
 
-            // Fuzzy match: exact first, then startsWith, then includes
+            // Fuzzy match: exact name → alias → startsWith name → startsWith alias → includes name → includes alias
             const lower = typed.toLowerCase();
+            function matchesAlias(oc, input) {
+                if (!oc.aka) return false;
+                return oc.aka.split(/,/).some(a => a.trim().toLowerCase() === input);
+            }
+            function aliasStartsWith(oc, input) {
+                if (!oc.aka) return false;
+                return oc.aka.split(/,/).some(a => a.trim().toLowerCase().startsWith(input));
+            }
+            function aliasIncludes(oc, input) {
+                if (!oc.aka) return false;
+                return oc.aka.split(/,/).some(a => a.trim().toLowerCase().includes(input));
+            }
             let match = activeOCs.find(oc => oc.name.toLowerCase() === lower);
+            if (!match) match = activeOCs.find(oc => matchesAlias(oc, lower));
             if (!match) match = activeOCs.find(oc => oc.name.toLowerCase().startsWith(lower));
+            if (!match) match = activeOCs.find(oc => aliasStartsWith(oc, lower));
             if (!match) match = activeOCs.find(oc => oc.name.toLowerCase().includes(lower));
+            if (!match) match = activeOCs.find(oc => aliasIncludes(oc, lower));
 
             if (!match) {
-                // Show closest matches as a hint
+                // Show closest matches as a hint (name or alias)
                 const close = activeOCs
-                    .filter(oc => oc.name.toLowerCase().includes(lower.slice(0, 3)))
+                    .filter(oc => oc.name.toLowerCase().includes(lower.slice(0, 3)) || aliasIncludes(oc, lower.slice(0, 3)))
                     .slice(0, 5)
-                    .map(oc => `• ${oc.name}`);
+                    .map(oc => `• ${oc.name}${oc.aka ? ` (${oc.aka})` : ''}`);
                 const hint = close.length > 0
                     ? `\n\nDid you mean one of these?\n${close.join('\n')}`
                     : '\n\nPlease try clicking Register Character again.';

@@ -2,6 +2,7 @@ import { MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { TextDisplayBuilder, ThumbnailBuilder, SectionBuilder, ContainerBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { Character, getFlavorText } from '../utility/classes.js';
 import { getTableData } from '../utility/access_data.js';
+import { fuzzyMatchOCNames } from '../utility/utils.js';
 import { basicEmbed } from '../utility/format_embed.js';
 // import { AB_DATA } from '../initialize-data.js';
 
@@ -121,12 +122,8 @@ export default{
         await reprintMessage(interaction);
     },
     async autocomplete(interaction) {
-		let choices = getTableData('ocs').map(row=> row.name);
 		const focusedValue = interaction.options.getFocused();
-        let filtered = choices.filter((choice) => choice.toLowerCase().startsWith(focusedValue.toLowerCase()));
-        if(filtered.length > 25){
-            filtered = filtered.slice(0, 24)
-        }
+        const filtered = fuzzyMatchOCNames(focusedValue, 25);
 		await interaction.respond(filtered.map((choice) => ({ name: choice, value: choice })));
 	},
     async executePrefix(message, args) {

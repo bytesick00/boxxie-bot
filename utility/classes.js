@@ -5,7 +5,7 @@ import {
   rowValueR1C1ToA1,
 } from "../sheets.js";
 import { addData, getData, getFieldProperties, getTableData, updateData, addInventoryRow } from "./access_data.js";
-import { randOutOf } from "./utils.js";
+import { randOutOf, resolveOCName } from "./utils.js";
 
 /**
  * Holds data as an array of DataRow objects, in the form {header1: value1, header2: value2, ...}
@@ -328,7 +328,8 @@ export class DBTable {
 
 export class Character extends DBTable {
   constructor(name) {
-    super("ocs", "name", name);
+    const canonicalName = resolveOCName(name) || name;
+    super("ocs", "name", canonicalName);
 
     this.name = this.data.name;
     this.aka = this.data.aka;

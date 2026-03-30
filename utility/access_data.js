@@ -524,6 +524,7 @@ export async function saveActiveRuns(runsMap) {
             ),
             startMessageId: run.startMessageId,
             password: run.password || null,
+            level: run.level || 'depth1',
         };
     }
     db.data.activeRuns = serialized;
@@ -541,6 +542,7 @@ export function loadActiveRuns() {
             characters: new Map(Object.entries(run.characters || {})),
             startMessageId: run.startMessageId || null,
             password: run.password || null,
+            level: run.level || 'depth1',
         });
     }
     return runs;
@@ -723,4 +725,190 @@ function consolidateInventoryCache() {
     db.data.inventory = [...consolidated.values()].filter(
         row => parseInt(row.amount) > 0
     );
+}
+
+// ---- 24-Hour Bidirectional Sync ----
+
+const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+let syncTimer = null;
+
+/**
+ * Bidirectional sync between Google Sheets and local JSON cache.
+ * 
+ * Strategy per data type:
+ * 
+ * 1. **Stats (currentStats, baseStats)**: Bot writes to both sheet+cache in real-time.
+ *    Pull from sheet to pick up any manual edits made directly on the spreadsheet.
+ *
+ * 2. **OC Info (ocs)**: Same as stats - bot writes to both, pull from sheet for manual edits.
+ *
+ * 3. **Custom Commands (prefixCommands)**: The `limited` field is decremented ONLY
+ *    in the local cache at runtime, never pushed to sheet. On sync we:
+ *    - Snapshot local limited counters
+ *    - Pull fresh commands from sheet (picks up new commands, text changes, etc.)
+ *    - Merge limited counters: keep whichever is LOWER (more uses consumed)
+ *    - Push consumed limited counters back to sheet so the spreadsheet stays accurate
+ *
+ * 4. **Item amounts (shop/All Items)**: Bot decrements amounts in both sheet+cache.
+ *    Pull from sheet to resolve any drift. If local amount is lower (more consumed),
+ *    push local value back to sheet.
+ *
+ * 5. **Muns, Inventory, Mechanics, Flavor Text, Shops & Gacha, Get Commands**:
+ *    Pull from sheet to pick up any manual changes.
+ *
+ * 6. **Local-only data** (sublevelRuns, sublevelElevator, activeRuns):
+ *    Never overwritten - preserved across syncs.
+ */
+export async function periodicSync() {
+    console.log(`[Sync] Starting periodic sync at ${new Date().toISOString()}...`);
+
+    try {
+        if (!db) await setUpAdapter();
+
+        // ── 1. Preserve local-only fields ──
+        const preserved = {};
+        for (const field of LOCAL_FIELDS) {
+            if (db.data[field] !== undefined) {
+                preserved[field] = db.data[field];
+            }
+        }
+
+        // ── 2. Snapshot bot-modified data before pulling from sheet ──
+
+        // 2a. Limited counters for custom commands (only decremented locally)
+        const oldLimited = new Map();
+        if (db.data.prefixCommands) {
+            for (const cmd of db.data.prefixCommands) {
+                if (cmd.limited && cmd.limited !== '') {
+                    oldLimited.set(`${cmd.command}\0${cmd.text}`, cmd.limited);
+                }
+            }
+        }
+
+        // 2b. Item amounts (bot decrements in real-time to both sheet+cache,
+        //     but snapshot in case of drift)
+        const oldItemAmounts = new Map();
+        if (db.data.shop) {
+            for (const item of db.data.shop) {
+                if (item.amount !== undefined && item.amount !== '') {
+                    oldItemAmounts.set(item.name, item.amount);
+                }
+            }
+        }
+
+        // ── 3. Pull fresh data from Google Sheets ──
+        for (const sheetRange of SHEET_RANGES) {
+            const tableKeys = allKeys[sheetRange.sheet].keys;
+            const tableField = allKeys[sheetRange.sheet].field;
+            await cacheData(sheetRange, tableKeys, tableField, true);
+        }
+
+        // ── 4. Restore local-only data ──
+        for (const [field, value] of Object.entries(preserved)) {
+            db.data[field] = value;
+        }
+
+        // ── 5. Merge custom command limited counters ──
+        const limitedToPush = []; // entries whose local value is lower → push to sheet
+        if (db.data.prefixCommands) {
+            for (const cmd of db.data.prefixCommands) {
+                const key = `${cmd.command}\0${cmd.text}`;
+                if (oldLimited.has(key)) {
+                    const cached = parseInt(oldLimited.get(key));
+                    const sheet  = parseInt(cmd.limited);
+                    if (!isNaN(cached) && (isNaN(sheet) || cached < sheet)) {
+                        cmd.limited = String(cached);
+                        limitedToPush.push(cmd);
+                    }
+                }
+            }
+        }
+
+        // ── 6. Merge item amounts (keep lower = more consumed) ──
+        const itemsToPush = [];
+        if (db.data.shop) {
+            for (const item of db.data.shop) {
+                if (!oldItemAmounts.has(item.name)) continue;
+                const localAmt  = parseInt(oldItemAmounts.get(item.name));
+                const sheetAmt  = parseInt(item.amount);
+                if (!isNaN(localAmt) && (isNaN(sheetAmt) || localAmt < sheetAmt)) {
+                    item.amount = String(localAmt);
+                    itemsToPush.push(item);
+                }
+            }
+        }
+
+        // ── 7. Consolidate inventory cache ──
+        consolidateInventoryCache();
+
+        // Save merged cache to disk
+        await db.write();
+
+        // ── 8. Push consumed limited counters back to sheet ──
+        for (const cmd of limitedToPush) {
+            try {
+                const sheetName = getSheetName('prefixCommands');
+                const sheetTable = await SheetTable.init(
+                    'prefixCommands', sheetName,
+                    SHEET_RANGES.find(t => t.sheet === sheetName).range
+                );
+                sheetTable.updateValue(
+                    cmd.command,
+                    getSheetColumnName('prefixCommands', 'command'),
+                    getSheetColumnName('prefixCommands', 'limited'),
+                    cmd.limited
+                );
+            } catch (e) {
+                console.error(`[Sync] Failed to push limited counter for command "${cmd.command}":`, e);
+            }
+        }
+
+        // ── 9. Push corrected item amounts back to sheet ──
+        for (const item of itemsToPush) {
+            try {
+                const sheetName = getSheetName('shop');
+                const sheetTable = await SheetTable.init(
+                    'shop', sheetName,
+                    SHEET_RANGES.find(t => t.sheet === sheetName).range
+                );
+                sheetTable.updateValue(
+                    item.name,
+                    getSheetColumnName('shop', 'name'),
+                    getSheetColumnName('shop', 'amount'),
+                    item.amount
+                );
+            } catch (e) {
+                console.error(`[Sync] Failed to push item amount for "${item.name}":`, e);
+            }
+        }
+
+        console.log(`[Sync] Complete. Pushed ${limitedToPush.length} limited counters, ${itemsToPush.length} item amounts to sheet.`);
+    } catch (e) {
+        console.error('[Sync] Periodic sync failed:', e);
+    }
+}
+
+/**
+ * Start the 24-hour sync timer. Call once at startup after initCache().
+ */
+export function startPeriodicSync() {
+    if (syncTimer) {
+        clearInterval(syncTimer);
+    }
+    syncTimer = setInterval(() => {
+        periodicSync().catch(e => console.error('[Sync] Unhandled error:', e));
+    }, SYNC_INTERVAL_MS);
+
+    console.log(`[Sync] Periodic sync scheduled every ${SYNC_INTERVAL_MS / 1000 / 60 / 60} hours.`);
+}
+
+/**
+ * Stop the 24-hour sync timer.
+ */
+export function stopPeriodicSync() {
+    if (syncTimer) {
+        clearInterval(syncTimer);
+        syncTimer = null;
+        console.log('[Sync] Periodic sync stopped.');
+    }
 }
