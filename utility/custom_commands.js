@@ -528,6 +528,20 @@ async function giveMoney(message, amount) {
  * Does NOT send anything — returns null if no command found, otherwise { ...sendOptions }.
  * Optionally handles rewards for a given userId.
  */
+/**
+ * Checks whether a custom command with the given name exists (has at least one available match).
+ */
+export function customCommandExists(commandName) {
+    const allCommands = getTableData('prefixCommands');
+    if (!allCommands || !Array.isArray(allCommands)) return false;
+    return allCommands.some(cmd => {
+        if (!cmd.command) return false;
+        if (cmd.command.trim().toLowerCase() !== commandName.toLowerCase()) return false;
+        if (cmd.limited && cmd.limited !== '' && parseInt(cmd.limited) <= 0) return false;
+        return true;
+    });
+}
+
 export async function getCustomCommandContent(commandName, userId) {
     const allCommands = getTableData('prefixCommands');
     if (!allCommands || !Array.isArray(allCommands)) return null;

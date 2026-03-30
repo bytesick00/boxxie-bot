@@ -5,8 +5,6 @@ import {
 import { getTableData } from "../utility/access_data.js";
 import {
   TextDisplayBuilder,
-  ThumbnailBuilder,
-  SectionBuilder,
   ContainerBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -61,19 +59,11 @@ function displayShop(pageNum, shopType, category = "ALL") {
 
   const shopDescContainer = new ContainerBuilder()
     .setAccentColor(11326574)
-    .addSectionComponents(
-      new SectionBuilder()
-        .setThumbnailAccessory(
-          new ThumbnailBuilder().setURL(
-            "https://64.media.tumblr.com/4f5160222de5db25d0f4c1adc8877c6e/b8c9606df47e4fff-fc/s1280x1920/889020a9500cf7ee566904988a677381b23173cf.jpg",
-          ),
-        )
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            "## New Millennium Technologies Shop",
-          ),
-          new TextDisplayBuilder().setContent(shopDesc),
-        ),
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## New Millennium Technologies Shop",
+      ),
+      new TextDisplayBuilder().setContent(shopDesc),
     );
 
   // Build category filter row
@@ -131,11 +121,6 @@ function displayShop(pageNum, shopType, category = "ALL") {
     );
   }
 
-  const closeButton = new ButtonBuilder()
-    .setStyle(ButtonStyle.Danger)
-    .setLabel("Exit Shop")
-    .setCustomId("exit");
-
   shopItemsContainer
     .addSeparatorComponents(
       new SeparatorBuilder()
@@ -145,12 +130,7 @@ function displayShop(pageNum, shopType, category = "ALL") {
     .addActionRowComponents(selectRow);
 
   if (navRow) {
-    navRow.addComponents(closeButton);
     shopItemsContainer.addActionRowComponents(navRow);
-  } else {
-    shopItemsContainer.addActionRowComponents(
-      new ActionRowBuilder().addComponents(closeButton),
-    );
   }
 
   const components = [shopDescContainer];
