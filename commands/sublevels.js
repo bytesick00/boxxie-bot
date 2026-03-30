@@ -65,7 +65,7 @@ export default {
                 .setRequired(false))
         .addStringOption(option =>
             option.setName('level')
-                .setDescription('Starting level (e.g. depth1). Default: depth1')
+                .setDescription('Where are we going?')
                 .setRequired(false)),
 
     async execute(interaction) {
