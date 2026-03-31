@@ -37,10 +37,10 @@ async function mainFunction(interaction){
 
     const title = `Submit Word Count`
     const message = 
-        `**\`\`\`${wordCount} words = ${payout} scrip!\nAdded ${payout} scrip to ${thisMun.name}'s wallet!\`\`\`**
-        💰 **NEW BALANCE:** \`${thisMun.scrip}\` scrip`
+        `**\`\`\`${wordCount} words = ${payout} scrip!\nAdded ${payout} scrip to ${thisMun.name}'s wallet!\`\`\`**`
     const embed = basicEmbed('', message, '', '','', false)
     embed.setColor("#acd46e");
+    embed.setFooter({ text: `💰 NEW BALANCE: ${thisMun.scrip} scrip` });
 
     await interaction.reply(
         {embeds: [embed]}
@@ -71,9 +71,10 @@ export default{
         }
         const thisMun = new Mun(munData.name);
         await thisMun.addScrip(payout);
-        const msg = `**\`\`\`${wordCount} words = ${payout} scrip!\nAdded ${payout} scrip to ${thisMun.name}'s wallet!\`\`\`**\n💰 **NEW BALANCE:** \`${thisMun.scrip}\` scrip`;
+        const msg = `**\`\`\`${wordCount} words = ${payout} scrip!\nAdded ${payout} scrip to ${thisMun.name}'s wallet!\`\`\`**`;
         const embed = basicEmbed('', msg, '', '', '', false);
         embed.setColor("#acd46e");
+        embed.setFooter({ text: `💰 NEW BALANCE: ${thisMun.scrip} scrip` });
         await message.reply({ embeds: [embed] });
     },
 }

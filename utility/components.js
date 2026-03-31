@@ -146,12 +146,13 @@ export function getItemInfoContainer(
  * @returns {ContainerBuilder[]}
  */
 const CATEGORY_EMOJI = {
-  Consumable: "🍔",
+  Consumable: "💊",
   Collectable: "⭐",
   Equipment: "🛡️",
   Quest: "📜",
   Treasure: "💎",
   Usable: "🧪",
+  Miscellaneous: "📦",
   "???": "❓",
 };
 
@@ -171,7 +172,7 @@ function formatItemRow(name, quantity, emoji) {
   return `**\`${name}${tabSpace}\`**${emoji}**\`QTY: ${quantity}\`**`;
 }
 
-const CATEGORY_ORDER = ["Consumable", "Collectable", "Usable", "Equipment", "Quest", "Treasure", "???", "OOC"];
+const CATEGORY_ORDER = ["Consumable", "Collectable", "Usable", "Equipment", "Quest", "Treasure", "Miscellaneous", "???", "OOC"];
 
 function sortItems(items, sort) {
   switch (sort) {
@@ -212,7 +213,7 @@ export function getInventoryComponents(inventory, filter = "ALL", page = 0, sort
   const ownedTypes = new Set(sortedItems.map((i) => i.isOOC ? "OOC" : i.type));
 
   // Build filter dropdown: ALL + owned categories
-  const allCategories = ["Consumable", "Collectable", "Usable", "Equipment", "Quest", "Treasure", "???", "OOC"];
+  const allCategories = ["Consumable", "Collectable", "Usable", "Equipment", "Quest", "Treasure", "Miscellaneous", "???", "OOC"];
   const dropdownOptions = [
     new StringSelectMenuOptionBuilder()
       .setLabel("All")
@@ -485,22 +486,30 @@ export function buildPaginatedItemSelect({
 }
 
 /**
- * Builds a row of category filter buttons.
- * @param {Array<{label: string, value: string}>} categories
+ * Builds a dropdown select menu for category filtering.
+ * @param {Array<{label: string, value: string, count?: number, emoji?: string}>} categories
  * @param {string} currentCategory
  * @returns {ActionRowBuilder|null}
  */
 export function buildCategoryFilterRow(categories, currentCategory = "ALL") {
   if (categories.length <= 1) return null;
 
-  const buttons = categories.slice(0, 5).map((cat) =>
-    new ButtonBuilder()
-      .setStyle(cat.value === currentCategory ? ButtonStyle.Primary : ButtonStyle.Secondary)
+  const options = categories.slice(0, 25).map((cat) => {
+    const opt = new StringSelectMenuOptionBuilder()
       .setLabel(cat.label)
-      .setCustomId(`cat_${cat.value}`),
-  );
+      .setValue(cat.value)
+      .setDefault(cat.value === currentCategory);
+    if (cat.emoji) opt.setEmoji({ name: cat.emoji });
+    if (cat.count != null) opt.setDescription(`${cat.count} item${cat.count !== 1 ? "s" : ""}`);
+    return opt;
+  });
 
-  return new ActionRowBuilder().addComponents(buttons);
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("cat_filter")
+      .setPlaceholder("Filter by category...")
+      .addOptions(options),
+  );
 }
 
 /**

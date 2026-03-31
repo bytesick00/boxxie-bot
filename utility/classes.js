@@ -390,6 +390,8 @@ export class currentStats extends DBTable {
     this.lck = this.data.lck;    
     this.reprints = this.data.reprints;
     this.error = this.data.error;
+    this.daily = this.data.daily;
+    this.dailyConsequence = this.data.dailyConsequence;
   }
 
   async setStat(statName, newValue){

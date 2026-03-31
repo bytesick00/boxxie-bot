@@ -22,7 +22,7 @@ export const SHEET_RANGES = [
         },
         {
             sheet: "Current Stats",
-            range: "A:I"
+            range: "A:K"
         },
         {   sheet: "Inventory Rows",
             range: "A:E"
@@ -232,6 +232,14 @@ const currentStatKeys = [
     {
         db: "error",
         sheet: "Reprint Error"
+    },
+    {
+        db: "daily",
+        sheet: "Daily"
+    },
+    {
+        db: "dailyConsequence",
+        sheet: "Daily Consequence"
     }
 ]
 const inventoryKeys = [
@@ -880,6 +888,16 @@ export async function periodicSync() {
             } catch (e) {
                 console.error(`[Sync] Failed to push item amount for "${item.name}":`, e);
             }
+        }
+
+        // ── 10. Reset daily cooldowns and consequences for all characters ──
+        if (db.data.currentStats) {
+            for (const stat of db.data.currentStats) {
+                stat.daily = '';
+                stat.dailyConsequence = '';
+            }
+            await db.write();
+            console.log(`[Sync] Reset daily cooldowns for ${db.data.currentStats.length} characters.`);
         }
 
         console.log(`[Sync] Complete. Pushed ${limitedToPush.length} limited counters, ${itemsToPush.length} item amounts to sheet.`);

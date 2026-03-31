@@ -249,7 +249,7 @@ async function sendZeroHPMessage(channel, characterName) {
 
     const description = `**${characterName}** is about to pass out.`;
 
-    const embed = basicEmbed(title, description);
+    const embed = basicEmbed(title, description, "", "", "", false);
     embed.setFooter({ text: 'this character can no longer participate in rooms and must be carried forward.' });
 
     await channel.send({ embeds: [embed] });
@@ -273,7 +273,7 @@ async function sendReviveMessage(channel, characterName) {
 
     const description = `**${characterName}** was revived!`;
 
-    const embed = basicEmbed(title, description);
+    const embed = basicEmbed(title, description, "", "", "", false);
 
     await channel.send({ embeds: [embed] });
 }

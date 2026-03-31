@@ -31,6 +31,11 @@ function isMunField(field) {
     return MUN_FIELDS.some(f => f.value === field);
 }
 
+function extractCm(heightStr) {
+    const match = heightStr.match(/(\d+)\s*cm/i);
+    return match ? parseInt(match[1]) : 0;
+}
+
 function getFieldLabel(field) {
     return ALL_FIELDS.find(f => f.value === field)?.label ?? capitalize(field);
 }
@@ -40,7 +45,7 @@ function buildListData(field) {
         const muns = getTableData('muns');
         return muns
             .filter(m => m.status === 'Active' && m[field])
-            .map(m => ({ name: m.name, value: m[field] }))
+            .map(m => ({ name: m.name, value: m[field].trim() }))
             .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }));
     }
 
@@ -49,10 +54,16 @@ function buildListData(field) {
         .filter(oc => oc[field] && oc.name)
         .map(oc => ({
             name: oc.name.split(' ')[0],
-            value: oc[field],
+            value: oc[field].trim(),
             mun: oc.mun,
         }))
-        .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }));
+        .sort((a, b) => {
+            if (field === 'height') {
+                const diff = extractCm(a.value) - extractCm(b.value);
+                return diff !== 0 ? diff : a.value.localeCompare(b.value, undefined, { numeric: true });
+            }
+            return a.value.localeCompare(b.value, undefined, { numeric: true });
+        });
 }
 
 function buildCategorySummary(entries) {

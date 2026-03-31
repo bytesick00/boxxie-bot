@@ -366,32 +366,97 @@ async function handleSecretButton(interaction, storeId) {
     payload.claimedBy.push({ id: userId, name: displayName });
     await interaction.reply({ content: payload.content, ephemeral: true });
 
-    // Update button label on the original message
+    // Update button display on the original message
     try {
+        const isMultiClaim = payload.maxClaims > 1;
         const names = payload.claimedBy.map(c => c.name).join(', ');
-        const slotsLeft = isFinite(payload.maxClaims)
-            ? payload.maxClaims - payload.claimedBy.length
-            : null;
-        const suffix = slotsLeft !== null ? ` [${slotsLeft} left]` : '';
-        const newLabel = `📜 Secret (${names})${suffix}`;
-        // Discord button labels max 80 chars
-        const label = newLabel.length <= 80 ? newLabel : newLabel.slice(0, 77) + '...';
 
-        const newRows = rebuildButtonLabel(
-            interaction.message.components,
-            interaction.customId,
-            label,
-            ButtonStyle.Secondary,
-        );
-        await interaction.message.edit({ components: newRows });
+        if (isMultiClaim) {
+            // Multi-claim secrets: keep original button red, add/update info button
+            const slotsLeft = isFinite(payload.maxClaims)
+                ? payload.maxClaims - payload.claimedBy.length
+                : null;
+            const suffix = slotsLeft !== null ? ` [${slotsLeft} left]` : '';
+            const infoLabel = `📜 Secret (${names})${suffix}`;
+            const label = infoLabel.length <= 80 ? infoLabel : infoLabel.slice(0, 77) + '...';
+            const fullyClaimed = isFinite(payload.maxClaims) && payload.claimedBy.length >= payload.maxClaims;
+            const infoId = `cc:secretinfo:${storeId}`;
+
+            const newRows = rebuildSecretWithInfo(
+                interaction.message.components,
+                interaction.customId,
+                fullyClaimed,
+                infoId,
+                label,
+            );
+            await interaction.message.edit({ components: newRows });
+        } else {
+            // Single-claim: existing behavior — disable and show claimer
+            const newLabel = `📜 Secret (${names})`;
+            const label = newLabel.length <= 80 ? newLabel : newLabel.slice(0, 77) + '...';
+
+            const newRows = rebuildButtonLabel(
+                interaction.message.components,
+                interaction.customId,
+                label,
+                ButtonStyle.Secondary,
+            );
+            await interaction.message.edit({ components: newRows });
+        }
     } catch (e) {
         console.error('Failed to update secret button:', e);
     }
 }
 
 /**
- * Rebuilds a message's component rows, replacing a specific button's label and style.
+ * Rebuilds component rows for multi-claim secrets:
+ * - Keeps the original secret button red (Danger), disables only when fully claimed
+ * - Adds or updates a disabled info button showing who has claimed the secret
  */
+function rebuildSecretWithInfo(existingRows, targetCustomId, fullyClaimed, infoId, infoLabel) {
+    let infoButtonHandled = false;
+
+    const rows = existingRows.map(row => {
+        const newRow = new ActionRowBuilder();
+        let hasTarget = false;
+
+        for (const comp of row.components) {
+            const data = comp.toJSON ? comp.toJSON() : comp;
+
+            if (data.custom_id === targetCustomId) {
+                hasTarget = true;
+                const btn = ButtonBuilder.from(data).setStyle(ButtonStyle.Danger);
+                if (fullyClaimed) btn.setDisabled(true);
+                newRow.addComponents(btn);
+            } else if (data.custom_id === infoId) {
+                // Update existing info button label
+                infoButtonHandled = true;
+                newRow.addComponents(
+                    ButtonBuilder.from(data).setLabel(infoLabel)
+                );
+            } else {
+                newRow.addComponents(data);
+            }
+        }
+
+        // Add info button next to the secret button if not yet present and there's room
+        if (hasTarget && !infoButtonHandled && newRow.components.length < 5) {
+            infoButtonHandled = true;
+            newRow.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(infoId)
+                    .setLabel(infoLabel)
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true)
+            );
+        }
+
+        return newRow;
+    });
+
+    return rows;
+}
+
 function rebuildButtonLabel(existingRows, targetCustomId, newLabel, newStyle) {
     return existingRows.map(row => {
         const newRow = new ActionRowBuilder();
