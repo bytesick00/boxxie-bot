@@ -32,10 +32,8 @@ jobs:
           instance_name: 'instance-20260119-052155'
           zone: '${{ env.ZONE }}'
           ssh_private_key: '${{ secrets.SSH_PRIVATE_KEY }}'
-          command: |-
-            cd boxxie-bot'
-            git pull'
-            pm2 restart all'
+          user: 'bytesick00'
+          command: 'cd boxxie-bot && git pull && pm2 restart all'
 
       - name: 'Show Output'
         run: |-
