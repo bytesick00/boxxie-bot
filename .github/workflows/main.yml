@@ -1,0 +1,45 @@
+on:
+  push:
+    branches:
+      - 'main'
+      
+name: 'SSH to Google Cloud Platform compute instances'
+env:
+  ZONE: 'us-central1-c'
+
+jobs:
+  ssh:
+    runs-on: 'ubuntu-latest'
+    permissions: 
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: 'Checkout'
+        uses: 'actions/checkout@v3'
+
+      # Generates an access token for gcloud
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v3'
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      - name: 'SSH to GCP instance'
+        id: 'ssh'
+        uses: 'google-github-actions/ssh-compute@v2'
+        with:
+          instance_name: 'instance-20260119-052155'
+          zone: '${{ env.ZONE }}'
+          ssh_private_key: '${{ secrets.SSH_PRIVATE_KEY }}'
+          command: |-
+            cd boxxie-bot'
+            git pull'
+            pm2 restart all'
+
+      - name: 'Show Output'
+        run: |-
+          echo '${{ steps.ssh.outputs.stdout }}'
+          echo '${{ steps.ssh.outputs.stderr }}'
+            
+          
