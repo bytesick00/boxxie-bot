@@ -150,7 +150,7 @@ function buildTrackerMessage(run) {
         new ButtonBuilder()
             .setStyle(ButtonStyle.Primary)
             .setLabel('Start Run')
-            .setEmoji({ name: '🚀' })
+            .setEmoji({ name: '�' })
             .setCustomId('sl:startrun')
             .setDisabled(run.characters.size === 0),
     );
@@ -208,11 +208,19 @@ export async function handleSublevelInteraction(interaction) {
             const commandName = `sublevels_${level}`;
             const content = await getCustomCommandContent(commandName, interaction.user.id);
 
+            // Build mentions for all registered characters
+            const uniqueUserIds = [...new Set([...run.characters.values()].map(c => c.userId).filter(Boolean))];
+            const mentions = uniqueUserIds.map(id => `<@${id}>`).join(' ');
+
             if (content && !content.editIn) {
+                if (typeof content === 'object') {
+                    content.content = (content.content ? content.content + '\n' : '') + mentions;
+                }
                 await interaction.reply(content);
             } else if (content && content.editIn) {
                 const sendOptions = {};
-                if (content.editIn.initialContent) sendOptions.content = content.editIn.initialContent;
+                const initialWithMentions = (content.editIn.initialContent || '') + (mentions ? '\n' + mentions : '');
+                if (initialWithMentions) sendOptions.content = initialWithMentions;
                 if (content.image) sendOptions.files = [{ attachment: content.image }];
                 const reply = await interaction.reply({ ...sendOptions, fetchReply: true });
                 await new Promise(resolve => setTimeout(resolve, content.editIn.delayMs));
@@ -222,7 +230,7 @@ export async function handleSublevelInteraction(interaction) {
                 }
                 await reply.edit(editOptions);
             } else {
-                await interaction.reply(`🏢 Starting from level: **${level}**`);
+                await interaction.reply(`🏢 Starting from level: **${level}**${mentions ? '\n' + mentions : ''}`);
             }
 
             return true;

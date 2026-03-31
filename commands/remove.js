@@ -36,8 +36,7 @@ async function changeWallet(interaction, amount, mun){
     try{
         await mun.removeScrip(amount)
         actionMessage = 
-        `**\`\`\`Removed ${amount} scrip from ${mun.name}'s wallet.\`\`\`**
-        💰 **NEW BALANCE:** \`${mun.scrip}\` scrip`;
+        `**\`\`\`Removed ${amount} scrip from ${mun.name}'s wallet.\`\`\`**`;
     }
     catch (error) {
         if(error.message === "Not enough scrip!"){
@@ -53,6 +52,7 @@ async function changeWallet(interaction, amount, mun){
 
     const embed = basicEmbed('Manage Wallet', actionMessage, thumbnail,'','',false)
     embed.setColor("#acd46e");
+    embed.setFooter({ text: `💰 NEW BALANCE: ${mun.scrip} scrip` });
 
     await interaction.reply({embeds: [embed]});
 }
@@ -99,7 +99,7 @@ export default{
         let actionMessage;
         try {
             await mun.removeScrip(amount);
-            actionMessage = `**\`\`\`Removed ${amount} scrip from ${mun.name}'s wallet.\`\`\`**\n💰 **NEW BALANCE:** \`${mun.scrip}\` scrip`;
+            actionMessage = `**\`\`\`Removed ${amount} scrip from ${mun.name}'s wallet.\`\`\`**`;
         } catch (error) {
             if (error.message === 'Not enough scrip!') {
                 actionMessage = `**\`\`\`ERROR: Not enough scrip in ${mun.name}'s wallet, cannot remove ${amount} scrip!\`\`\`**\n💰 **BALANCE:** \`${mun.scrip}\` scrip`;
@@ -109,6 +109,7 @@ export default{
         }
         const embed = basicEmbed('Manage Wallet', actionMessage, 'https://p0.piqsels.com/preview/28/212/916/coin-coins-money-finance.jpg', '', '', false);
         embed.setColor("#acd46e");
+        embed.setFooter({ text: `💰 NEW BALANCE: ${mun.scrip} scrip` });
         await message.reply({ embeds: [embed] });
     },
 }

@@ -107,7 +107,7 @@ export default {
       await message.reply({ embeds: [embed] });
       return;
     }
-    const emojiMap = { Consumable: '🍔', Collectable: '⭐', Equipment: '🛡️', Quest: '📜', Treasure: '💎', Usable: '🧪', '???': '❓' };
+    const emojiMap = { Consumable: '💊', Collectable: '⭐', Equipment: '🛡️', Quest: '📜', Treasure: '💎', Usable: '🧪', Miscellaneous: '📦', '???': '❓' };
     const items = thisInventory.items
       .map((i) => {
         const d = getData("shop", "name", i.item);

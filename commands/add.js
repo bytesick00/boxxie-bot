@@ -35,11 +35,11 @@ async function changeWallet(interaction, amount, mun){
 
     await mun.addScrip(amount)
     actionMessage = 
-    `**\`\`\`Added ${amount} scrip to ${mun.name}'s wallet.\`\`\`**
-    💰 **NEW BALANCE:** \`${mun.scrip}\` scrip`;
+    `**\`\`\`Added ${amount} scrip to ${mun.name}'s wallet.\`\`\`**`;
 
     const embed = basicEmbed('Manage Wallet', actionMessage, thumbnail,'','',false)
     embed.setColor("#acd46e");
+    embed.setFooter({ text: `💰 NEW BALANCE: ${mun.scrip} scrip` });
 
     await interaction.reply({embeds: [embed]});
 }
@@ -83,9 +83,10 @@ export default{
         }
         const mun = new Mun(munData.name);
         await mun.addScrip(amount);
-        const actionMessage = `**\`\`\`Added ${amount} scrip to ${mun.name}'s wallet.\`\`\`**\n💰 **NEW BALANCE:** \`${mun.scrip}\` scrip`;
+        const actionMessage = `**\`\`\`Added ${amount} scrip to ${mun.name}'s wallet.\`\`\`**`;
         const embed = basicEmbed('Manage Wallet', actionMessage, 'https://p0.piqsels.com/preview/28/212/916/coin-coins-money-finance.jpg', '', '', false);
         embed.setColor("#acd46e");
+        embed.setFooter({ text: `💰 NEW BALANCE: ${mun.scrip} scrip` });
         await message.reply({ embeds: [embed] });
     },
 }

@@ -38,12 +38,27 @@ const commandBuilder = new SlashCommandBuilder()
       .setAutocomplete(true),
   );
 
+const CATEGORY_EMOJI = {
+  Consumable: "💊",
+  Collectable: "⭐",
+  Equipment: "🛡️",
+  Quest: "📜",
+  Treasure: "💎",
+  Usable: "🧪",
+  Miscellaneous: "📦",
+  "???": "❓",
+};
+
 function getShopCategories(shopType) {
   const shop = getTableData("shop").filter((item) => item.shop === shopType);
-  const types = [...new Set(shop.map((item) => item.type).filter(Boolean))];
-  const categories = [{ label: "All", value: "ALL" }];
-  for (const t of types) {
-    categories.push({ label: t, value: t });
+  const typeCounts = {};
+  for (const item of shop) {
+    const t = item.type || "???";
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  }
+  const categories = [{ label: "All", value: "ALL", count: shop.length, emoji: "🛒" }];
+  for (const [t, count] of Object.entries(typeCounts)) {
+    categories.push({ label: t, value: t, count, emoji: CATEGORY_EMOJI[t] || "❓" });
   }
   return categories;
 }
@@ -237,8 +252,8 @@ async function handleCollector(commandChoice, reply, interaction, ctx) {
           const newComp = displayShop(ctx.currentPage, ctx.shopType, ctx.category);
           const newResponse = await componentResponse.update(newComp);
           await handleCollector("browse", newResponse, interaction, ctx);
-        } else if (response.startsWith("cat_")) {
-          ctx.category = response.slice(4);
+        } else if (response === "cat_filter") {
+          ctx.category = componentResponse.values[0];
           ctx.currentPage = 1;
           const newComp = displayShop(ctx.currentPage, ctx.shopType, ctx.category);
           const newResponse = await componentResponse.update(newComp);

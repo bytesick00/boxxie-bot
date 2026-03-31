@@ -97,11 +97,12 @@ function getSellConfirmContainer(itemName, quantity, sellPrice, currentBalance, 
 }
 
 function getSoldComponent(itemName, quantity, newBalance) {
-  const message = `## Sold (${quantity}x) ${itemName}! \uD83D\uDCB0\n\uD83D\uDCB0 **NEW BALANCE**: ${newBalance}`;
+  const message = `## Sold (${quantity}x) ${itemName}! \uD83D\uDCB0`;
   return [
     new ContainerBuilder()
       .setAccentColor(11326574)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(message)),
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(message))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# \uD83D\uDCB0 NEW BALANCE: ${newBalance}`)),
   ];
 }
 
@@ -236,10 +237,11 @@ export default {
         await mun.addScrip(sellTotal);
         const embed = basicEmbed(
             `Sold (${quantity}x) ${item.name}! \uD83D\uDCB0`,
-            `\uD83D\uDCB0 **NEW BALANCE**: ${mun.scrip} scrip`,
+            '',
             item.image || '', '', '', false
         );
         embed.setColor("#acd46e");
+        embed.setFooter({ text: `💰 NEW BALANCE: ${mun.scrip} scrip` });
         await message.reply({ embeds: [embed] });
     },
 };

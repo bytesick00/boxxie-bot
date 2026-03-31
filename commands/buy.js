@@ -74,14 +74,14 @@ function getScripErrorComponent(mun, amount) {
 
 function getPurchasedComponent(itemName, quantity, newBalance) {
   const message =
-    "## Purchased ([QUANTITY]x) [ITEM_NAME]! \uD83C\uDF89\n\uD83D\uDCB0 **NEW BALANCE**: [SCRIP]"
+    "## Purchased ([QUANTITY]x) [ITEM_NAME]! \uD83C\uDF89"
       .replace("[QUANTITY]", quantity)
-      .replace("[ITEM_NAME]", itemName)
-      .replace("[SCRIP]", newBalance);
+      .replace("[ITEM_NAME]", itemName);
   return [
     new ContainerBuilder()
       .setAccentColor(11326574)
-      .addTextDisplayComponents(new TextDisplayBuilder().setContent(message)),
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(message))
+      .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# \uD83D\uDCB0 NEW BALANCE: ${newBalance}`)),
   ];
 }
 
@@ -178,10 +178,11 @@ export default {
       await (await mun.inventory).buyItem(itemName, quantity);
       const embed = basicEmbed(
         `Purchased (${quantity}x) ${item.name}! \uD83C\uDF89`,
-        `\uD83D\uDCB0 **NEW BALANCE**: ${mun.scrip} scrip`,
+        '',
         item.image || '', '', '', false
       );
       embed.setColor("#acd46e");
+      embed.setFooter({ text: `💰 NEW BALANCE: ${mun.scrip} scrip` });
       await message.reply({ embeds: [embed] });
     } catch (error) {
       if (error.message === "Not enough scrip!") {
