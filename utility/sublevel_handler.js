@@ -150,7 +150,7 @@ function buildTrackerMessage(run) {
         new ButtonBuilder()
             .setStyle(ButtonStyle.Primary)
             .setLabel('Start Run')
-            .setEmoji({ name: '�' })
+            .setEmoji({ name: '🛗' })
             .setCustomId('sl:startrun')
             .setDisabled(run.characters.size === 0),
     );
