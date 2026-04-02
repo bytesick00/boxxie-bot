@@ -6,7 +6,7 @@ import {
   SeparatorBuilder,
   SeparatorSpacingSize,
 } from "discord.js";
-import { getTableData, getData, updateData } from "../utility/access_data.js";
+import { getTableData, getData, updateData, getTimeUntilNextSync } from "../utility/access_data.js";
 import {
   Mun,
   Character,
@@ -76,21 +76,8 @@ function formatTimeRemaining(ms) {
 }
 
 /**
- * Returns the time remaining until the next daily reset (in ms).
- * Daily resets happen on the periodic sync cycle (every 24h from bot start).
- * We store a timestamp when daily was used; the reset is 24h after that.
- */
-function getTimeUntilReset(dailyTimestamp) {
-  if (!dailyTimestamp) return 0;
-  const usedAt = parseInt(dailyTimestamp);
-  if (isNaN(usedAt)) return 0;
-  const resetAt = usedAt + 24 * 60 * 60 * 1000;
-  const now = Date.now();
-  return Math.max(0, resetAt - now);
-}
-
-/**
  * Checks whether the user can use daily (not on cooldown, no consequence block).
+ * Daily resets globally when the 24-hour periodic sync runs (clears all daily fields).
  * Returns { canUse: true } or { canUse: false, reason: string }
  */
 function checkDailyAvailability(ocName) {
@@ -98,21 +85,24 @@ function checkDailyAvailability(ocName) {
 
   // Check consequence (overtime exhaustion blocks daily)
   if (stats.dailyConsequence && stats.dailyConsequence.toLowerCase() === "exhausted") {
+    const remaining = getTimeUntilNextSync();
     return {
       canUse: false,
-      reason: "You're too exhausted from overtime to work today. Get some rest and try again after the next reset!",
+      reason: remaining > 0
+        ? `You're too exhausted from overtime to work today. Next reset in **${formatTimeRemaining(remaining)}**.`
+        : "You're too exhausted from overtime to work today. Get some rest and try again after the next reset!",
     };
   }
 
-  // Check if already used today
+  // Check if already used this cycle (field is cleared by periodic sync)
   if (stats.daily && stats.daily.trim() !== "") {
-    const remaining = getTimeUntilReset(stats.daily);
-    if (remaining > 0) {
-      return {
-        canUse: false,
-        reason: `You've already done your daily! Next reset in **${formatTimeRemaining(remaining)}**.`,
-      };
-    }
+    const remaining = getTimeUntilNextSync();
+    return {
+      canUse: false,
+      reason: remaining > 0
+        ? `You've already done your daily! Next reset in **${formatTimeRemaining(remaining)}**.`
+        : "You've already done your daily! It will reset on the next sync cycle.",
+    };
   }
 
   return { canUse: true };
@@ -238,17 +228,14 @@ function getFirstOCForMun(munName) {
   return oc ? oc.name : null;
 }
 
-async function mainFunction(interaction) {
-  await interaction.deferReply();
+const VALID_TYPES = new Set(["work", "hustle", "overtime", "scavenge", "suckup", "sabotage", "steal", "cooperate"]);
 
-  const dailyType = interaction.options.getString("type");
-  const userId = interaction.user.id;
-
+async function mainFunction(dailyType, userId, reply) {
   // Find the player's mun
   const allMuns = getTableData("muns");
   const munData = allMuns.find((row) => row.id === userId);
   if (!munData) {
-    return interaction.editReply({
+    return reply({
       components: [
         new ContainerBuilder()
           .setAccentColor(11326574)
@@ -265,7 +252,7 @@ async function mainFunction(interaction) {
   // Find the player's first OC to track daily state
   const ocName = getFirstOCForMun(munData.name);
   if (!ocName) {
-    return interaction.editReply({
+    return reply({
       components: [
         new ContainerBuilder()
           .setAccentColor(11326574)
@@ -280,7 +267,7 @@ async function mainFunction(interaction) {
   // Check daily availability
   const availability = checkDailyAvailability(ocName);
   if (!availability.canUse) {
-    return interaction.editReply({
+    return reply({
       components: [
         new ContainerBuilder()
           .setAccentColor(11326574)
@@ -474,12 +461,25 @@ async function mainFunction(interaction) {
   if (flavorEmbeds) replyPayload.embeds = flavorEmbeds;
   if (flavorFiles) replyPayload.files = flavorFiles;
 
-  return interaction.editReply(replyPayload);
+  return reply(replyPayload);
 }
 
 export default {
   data: commandBuilder,
   async execute(interaction) {
-    await mainFunction(interaction);
+    await interaction.deferReply();
+    const dailyType = interaction.options.getString("type");
+    const userId = interaction.user.id;
+    await mainFunction(dailyType, userId, (payload) => interaction.editReply(payload));
+  },
+  async executePrefix(message, args) {
+    const dailyType = args?.trim().split(/\s+/)[0]?.toLowerCase();
+    if (!dailyType || !VALID_TYPES.has(dailyType)) {
+      const typeList = [...VALID_TYPES].map(t => `\`${t}\``).join(", ");
+      await message.reply(`Usage: \`?daily <type>\`\nTypes: ${typeList}`);
+      return;
+    }
+    const userId = message.author.id;
+    await mainFunction(dailyType, userId, (payload) => message.reply(payload));
   },
 };
