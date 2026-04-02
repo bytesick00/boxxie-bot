@@ -1,5 +1,6 @@
 import { Events, ActivityType } from 'discord.js';
 import { getTableData } from '../utility/access_data.js';
+import { startBirthdayChecker } from '../utility/birthday_checker.js';
 
 export default {
     name: Events.ClientReady,
@@ -14,5 +15,7 @@ export default {
 			client.user.setActivity(mood.text.trim(), { type: ActivityType.Custom });
 			console.log(`Bot status set: ${mood.text.trim()}`);
 		}
+
+		startBirthdayChecker(client);
 	},
 }

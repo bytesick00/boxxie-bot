@@ -278,14 +278,24 @@ export async function handleComponentInteraction(interaction) {
                 break;
 
             case 'edit': {
-                const result = resolveActionContent(parsed.content);
+                let editContent = parsed.content;
+                if (editContent.includes('|||')) {
+                    const options = editContent.split('|||').map(s => s.trim()).filter(Boolean);
+                    editContent = options[Math.floor(Math.random() * options.length)];
+                }
+                const result = resolveActionContent(editContent);
                 await interaction.message.edit(result);
                 await interaction.deferUpdate();
                 break;
             }
 
             case 'post': {
-                const result = resolveActionContent(parsed.content);
+                let postContent = parsed.content;
+                if (postContent.includes('|||')) {
+                    const options = postContent.split('|||').map(s => s.trim()).filter(Boolean);
+                    postContent = options[Math.floor(Math.random() * options.length)];
+                }
+                const result = resolveActionContent(postContent);
                 await interaction.reply(result);
                 break;
             }

@@ -274,8 +274,16 @@ const mechanicKeys = [
         sheet: "Rate"
     },
     {
+        db: "description",
+        sheet: "Description"
+    },
+    {
         db: "unit",
         sheet: "Per Unit"
+    },
+    {
+        db: "category",
+        sheet: "Type"
     }
 ]
 const flavorTextKeys = [
@@ -739,6 +747,7 @@ function consolidateInventoryCache() {
 
 const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 let syncTimer = null;
+let nextSyncAt = null;
 
 /**
  * Bidirectional sync between Google Sheets and local JSON cache.
@@ -913,11 +922,21 @@ export function startPeriodicSync() {
     if (syncTimer) {
         clearInterval(syncTimer);
     }
+    nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
     syncTimer = setInterval(() => {
+        nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
         periodicSync().catch(e => console.error('[Sync] Unhandled error:', e));
     }, SYNC_INTERVAL_MS);
 
     console.log(`[Sync] Periodic sync scheduled every ${SYNC_INTERVAL_MS / 1000 / 60 / 60} hours.`);
+}
+
+/**
+ * Returns ms until the next periodic sync (daily reset), or 0 if unknown.
+ */
+export function getTimeUntilNextSync() {
+    if (!nextSyncAt) return 0;
+    return Math.max(0, nextSyncAt - Date.now());
 }
 
 /**
