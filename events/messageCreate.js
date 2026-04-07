@@ -45,6 +45,11 @@ export default {
             } catch (e) {
                 console.error('Error executing floor command:', e);
             }
+            // Tag every participant in the run
+            const uniqueUserIds = [...new Set([...run.characters.values()].map(c => c.userId).filter(Boolean))];
+            if (uniqueUserIds.length > 0) {
+                await message.channel.send(uniqueUserIds.map(id => `<@${id}>`).join(' '));
+            }
             return;
         }
 

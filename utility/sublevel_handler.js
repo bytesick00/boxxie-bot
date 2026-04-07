@@ -11,7 +11,7 @@ import {
     TextDisplayBuilder,
     MessageFlags,
 } from 'discord.js';
-import { getData, getTableData, saveActiveRuns, loadActiveRuns } from './access_data.js';
+import { getData, getTableData, saveActiveRuns, loadActiveRuns, addSublevelRun } from './access_data.js';
 import { Character } from './classes.js';
 import { getCustomCommandContent } from './custom_commands.js';
 
@@ -72,27 +72,143 @@ function rollDie(sides) {
 }
 
 /**
- * Parse dice notation (e.g. "2d6") or a plain number (e.g. "5").
- * Returns { rolls: number[], total: number, notation: string } or null.
+ * Parse a dice math expression (e.g. "2d6+4", "1d8*2+1d4-1", "(2d6+3)*2").
+ * Supports +, -, *, parentheses, dice notation (NdS), and plain numbers.
+ * Returns { rolls: number[], total: number, notation: string, breakdown: string } or null.
+ *   rolls     – individual die results only (for animation)
+ *   breakdown – the expression with dice replaced by their rolled values
  */
 export function parseDice(input) {
     const trimmed = input.trim();
-    const diceMatch = trimmed.match(/^(\d*)d(\d+)$/i);
-    if (diceMatch) {
-        const count = diceMatch[1] ? parseInt(diceMatch[1]) : 1;
-        const sides = parseInt(diceMatch[2]);
-        if (count < 1 || count > 100 || sides < 1 || sides > 1000) return null;
-        const rolls = [];
-        for (let i = 0; i < count; i++) {
-            rolls.push(rollDie(sides));
+    if (!trimmed || trimmed.length > 200) return null;
+
+    // ── Tokenize & roll dice ──
+    const allRolls = [];       // every individual die result
+    const tokens = [];         // for the evaluator
+    const breakdownParts = []; // for the display string
+    let pos = 0;
+
+    while (pos < trimmed.length) {
+        if (trimmed[pos] === ' ') { pos++; continue; }
+
+        // Dice notation: NdS
+        const dm = trimmed.slice(pos).match(/^(\d*)d(\d+)/i);
+        if (dm) {
+            const count = dm[1] ? parseInt(dm[1]) : 1;
+            const sides = parseInt(dm[2]);
+            if (count < 1 || count > 1000 || sides < 1 || sides > 10000) return null;
+
+            const rolls = [];
+            for (let j = 0; j < count; j++) rolls.push(rollDie(sides));
+            const subtotal = rolls.reduce((a, b) => a + b, 0);
+
+            allRolls.push(...rolls);
+            tokens.push({ type: 'num', value: subtotal });
+
+            if (rolls.length === 1) {
+                breakdownParts.push(`**\`${rolls[0]}\`**`);
+            } else {
+                breakdownParts.push(`(${rolls.map(r => `**\`${r}\`**`).join(' + ')})`);
+            }
+
+            pos += dm[0].length;
+            continue;
         }
-        return { rolls, total: rolls.reduce((a, b) => a + b, 0), notation: trimmed };
+
+        // Plain number
+        const nm = trimmed.slice(pos).match(/^(\d+)/);
+        if (nm) {
+            tokens.push({ type: 'num', value: parseInt(nm[1]) });
+            breakdownParts.push(nm[1]);
+            pos += nm[1].length;
+            continue;
+        }
+
+        // Operators & parentheses
+        const ch = trimmed[pos];
+        if (ch === '+' || ch === '-') {
+            tokens.push({ type: 'add', value: ch });
+            breakdownParts.push(` ${ch} `);
+            pos++; continue;
+        }
+        if (ch === '*') {
+            tokens.push({ type: 'mul', value: ch });
+            breakdownParts.push(' × ');
+            pos++; continue;
+        }
+        if (ch === '(') {
+            tokens.push({ type: 'lp' });
+            breakdownParts.push('(');
+            pos++; continue;
+        }
+        if (ch === ')') {
+            tokens.push({ type: 'rp' });
+            breakdownParts.push(')');
+            pos++; continue;
+        }
+
+        return null; // invalid character
     }
-    const num = parseInt(trimmed);
-    if (!isNaN(num)) {
-        return { rolls: [num], total: num, notation: trimmed };
+
+    if (tokens.length === 0) return null;
+
+    // ── Recursive-descent evaluator (proper precedence: *, then +/-) ──
+    let ei = 0;
+    const peek = () => tokens[ei];
+    const eat  = () => tokens[ei++];
+
+    function expr() {
+        let v = term();
+        if (v === null) return null;
+        while (peek()?.type === 'add') {
+            const op = eat().value;
+            const r = term();
+            if (r === null) return null;
+            v = op === '+' ? v + r : v - r;
+        }
+        return v;
     }
-    return null;
+
+    function term() {
+        let v = factor();
+        if (v === null) return null;
+        while (peek()?.type === 'mul') {
+            eat();
+            const r = factor();
+            if (r === null) return null;
+            v = v * r;
+        }
+        return v;
+    }
+
+    function factor() {
+        const t = peek();
+        if (!t) return null;
+        // unary +/-
+        if (t.type === 'add') {
+            eat();
+            const v = factor();
+            if (v === null) return null;
+            return t.value === '-' ? -v : v;
+        }
+        if (t.type === 'num') { eat(); return t.value; }
+        if (t.type === 'lp') {
+            eat();
+            const v = expr();
+            if (v === null) return null;
+            if (peek()?.type !== 'rp') return null;
+            eat();
+            return v;
+        }
+        return null;
+    }
+
+    const total = expr();
+    if (total === null || ei !== tokens.length) return null;
+
+    const breakdown = breakdownParts.join('');
+
+    return { rolls: allRolls, total: Math.round(total), notation: trimmed, breakdown };
 }
 
 // ---- OC helpers ----
@@ -153,6 +269,16 @@ function buildTrackerMessage(run) {
             .setEmoji({ name: '🛗' })
             .setCustomId('sl:startrun')
             .setDisabled(run.characters.size === 0),
+        new ButtonBuilder()
+            .setStyle(ButtonStyle.Secondary)
+            .setLabel('Finalize')
+            .setEmoji({ name: '🏁' })
+            .setCustomId('sl:finalize'),
+        new ButtonBuilder()
+            .setStyle(ButtonStyle.Secondary)
+            .setLabel('Help')
+            .setEmoji({ name: '❓' })
+            .setCustomId('sl:help'),
     );
 
     return {
@@ -193,6 +319,17 @@ export async function handleSublevelInteraction(interaction) {
     const run = activeRuns.get(channelId);
 
     try {
+        // ---- Help button → post sublevels_help embed ----
+        if (customId === 'sl:help') {
+            const helpContent = await getCustomCommandContent('sublevels_help', interaction.user.id);
+            if (helpContent) {
+                await interaction.reply({ ...helpContent, ephemeral: true });
+            } else {
+                await interaction.reply({ content: 'No help information available.', ephemeral: true });
+            }
+            return true;
+        }
+
         // ---- Start Run button → post level descriptor ----
         if (customId === 'sl:startrun') {
             if (!run) {
@@ -513,6 +650,41 @@ export async function handleSublevelInteraction(interaction) {
             return true;
         }
 
+        // ---- Finalize button ----
+        if (customId === 'sl:finalize') {
+            if (!run) {
+                await interaction.reply({ content: 'No active sublevel run in this channel!', ephemeral: true });
+                return true;
+            }
+
+            if (run.finalized.size > 0) {
+                await interaction.reply({ content: 'This run has already been finalized!', ephemeral: true });
+                return true;
+            }
+
+            await finalizeRun(interaction.channel, run, channelId, interaction.user.id);
+
+            const content = await getCustomCommandContent('finalize', interaction.user.id);
+            if (content && !content.editIn) {
+                await interaction.reply(content);
+            } else if (content && content.editIn) {
+                const sendOptions = {};
+                if (content.editIn.initialContent) sendOptions.content = content.editIn.initialContent;
+                if (content.image) sendOptions.files = [{ attachment: content.image }];
+                const reply = await interaction.reply({ ...sendOptions, fetchReply: true });
+                await new Promise(resolve => setTimeout(resolve, content.editIn.delayMs));
+                const editOptions = { embeds: [content.editIn.embed] };
+                if (content.editIn.components && content.editIn.components.length > 0) {
+                    editOptions.components = content.editIn.components;
+                }
+                await reply.edit(editOptions);
+            } else {
+                await interaction.reply(`🏢 Sublevel run finalized! Cleared **${run.floors}** floors.`);
+            }
+
+            return true;
+        }
+
     } catch (e) {
         console.error('Error in sublevel interaction handler:', e);
         if (!interaction.replied && !interaction.deferred) {
@@ -596,8 +768,65 @@ export function applyHPChange(channelId, characterName, amount, type) {
     if (charData.hp < 0) charData.hp = 0;
     const newHP = charData.hp;
 
+    // Check if ALL characters are now at 0 HP
+    const allPassedOut = hitZero && [...run.characters.values()].every(c => c.hp <= 0);
+
     // Persist asynchronously (fire-and-forget is fine here since caller awaits tracker update)
     persistActiveRuns().catch(e => console.error('Failed to persist active runs after HP change:', e));
 
-    return { oldHP, newHP, characterName, hitZero, revived };
+    return { oldHP, newHP, characterName, hitZero, revived, allPassedOut };
+}
+
+// ---- Finalize run helper (shared by button and /finalize command) ----
+
+export async function finalizeRun(channel, run, channelId, userId) {
+    const now = new Date().toISOString();
+    if (run.characters.size > 0) {
+        for (const [charName, charData] of run.characters) {
+            const mun = charData.userId ? getData('muns', 'id', charData.userId) : null;
+            const name = mun ? mun.name : charName;
+            await addSublevelRun({
+                id: charData.userId || 'unknown',
+                name,
+                floors: run.floors,
+                date: now,
+            });
+            run.finalized.add(charData.userId || charName);
+        }
+    } else {
+        const mun = getData('muns', 'id', userId);
+        const name = mun ? mun.name : 'Unknown';
+        await addSublevelRun({ id: userId, name, floors: run.floors, date: now });
+        run.finalized.add(userId);
+    }
+
+    activeRuns.delete(channelId);
+    await persistActiveRuns();
+}
+
+// ---- All Passed Out message ----
+
+export async function sendAllPassedOutMessage(channel) {
+    const container = new ContainerBuilder().setAccentColor(11326574);
+    container.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+            '## 💀 Everyone Passed Out!'
+        ),
+        new TextDisplayBuilder().setContent(
+            'You don\'t remember what happens next, but you wake up in the reprinting lab.'
+        ),
+    );
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setStyle(ButtonStyle.Danger)
+            .setLabel('Finalize Run')
+            .setEmoji({ name: '🏁' })
+            .setCustomId('sl:finalize'),
+    );
+
+    await channel.send({
+        components: [container, row],
+        flags: MessageFlags.IsComponentsV2,
+    });
 }

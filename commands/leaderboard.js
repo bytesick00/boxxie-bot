@@ -90,10 +90,12 @@ export default {
         if (sorted.length === 0) {
             const embed = basicEmbed('💰 Scrip Leaderboard', 'No active members found. 🫗');
             await interaction.editReply({ embeds: [embed] });
+            setTimeout(() => interaction.deleteReply().catch(() => {}), 300_000);
             return;
         }
 
         const reply = await interaction.editReply(buildPage(sorted, 1));
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 300_000);
 
         if (Math.ceil(sorted.length / PAGE_SIZE) > 1) {
             await handlePagination(sorted, 1, reply, interaction);
@@ -109,10 +111,13 @@ export default {
         let pageNum = 1;
         const reply = await message.reply(buildPage(sorted, pageNum));
         const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
-        if (totalPages <= 1) return;
+        if (totalPages <= 1) {
+            setTimeout(() => reply.delete().catch(() => {}), 300_000);
+            return;
+        }
         const collector = reply.createMessageComponentCollector({
             filter: i => i.user.id === message.author.id,
-            time: 120_000,
+            time: 300_000,
         });
         collector.on('collect', async i => {
             if (i.customId === 'lb_next') pageNum++;
@@ -120,7 +125,7 @@ export default {
             await i.update(buildPage(sorted, pageNum));
         });
         collector.on('end', async () => {
-            await reply.edit({ components: [] }).catch(() => {});
+            await reply.delete().catch(() => {});
         });
     },
 };

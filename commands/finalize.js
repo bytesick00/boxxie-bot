@@ -1,6 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { activeRuns, persistActiveRuns } from '../utility/sublevel_handler.js';
-import { addSublevelRun, getData } from '../utility/access_data.js';
+import { activeRuns, finalizeRun } from '../utility/sublevel_handler.js';
 import { getCustomCommandContent } from '../utility/custom_commands.js';
 
 export default {
@@ -22,32 +21,7 @@ export default {
             return;
         }
 
-        // Record a run for every registered character
-        const now = new Date().toISOString();
-        if (run.characters.size > 0) {
-            for (const [charName, charData] of run.characters) {
-                const mun = charData.userId ? getData('muns', 'id', charData.userId) : null;
-                const name = mun ? mun.name : charName;
-                await addSublevelRun({
-                    id: charData.userId || 'unknown',
-                    name,
-                    floors: run.floors,
-                    date: now,
-                });
-                run.finalized.add(charData.userId || charName);
-            }
-        } else {
-            // Fallback: no registered characters, record for the person who finalized
-            const userId = interaction.user.id;
-            const mun = getData('muns', 'id', userId);
-            const name = mun ? mun.name : interaction.user.displayName;
-            await addSublevelRun({ id: userId, name, floors: run.floors, date: now });
-            run.finalized.add(userId);
-        }
-
-        // Clean up the active run
-        activeRuns.delete(channelId);
-        await persistActiveRuns();
+        await finalizeRun(interaction.channel, run, channelId, interaction.user.id);
 
         // Pull text from the custom command named "finalize"
         const content = await getCustomCommandContent('finalize', interaction.user.id);
@@ -79,29 +53,7 @@ export default {
             return;
         }
 
-        const now = new Date().toISOString();
-        if (run.characters.size > 0) {
-            for (const [charName, charData] of run.characters) {
-                const mun = charData.userId ? getData('muns', 'id', charData.userId) : null;
-                const name = mun ? mun.name : charName;
-                await addSublevelRun({
-                    id: charData.userId || 'unknown',
-                    name,
-                    floors: run.floors,
-                    date: now,
-                });
-                run.finalized.add(charData.userId || charName);
-            }
-        } else {
-            const userId = message.author.id;
-            const mun = getData('muns', 'id', userId);
-            const name = mun ? mun.name : message.author.displayName;
-            await addSublevelRun({ id: userId, name, floors: run.floors, date: now });
-            run.finalized.add(userId);
-        }
-
-        activeRuns.delete(channelId);
-        await persistActiveRuns();
+        await finalizeRun(message.channel, run, channelId, message.author.id);
 
         const content = await getCustomCommandContent('finalize', message.author.id);
         if (content && !content.editIn) {

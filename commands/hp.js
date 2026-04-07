@@ -6,7 +6,7 @@ import {
     SeparatorBuilder,
     SeparatorSpacingSize,
 } from 'discord.js';
-import { parseDice, applyHPChange, activeRuns, updateTrackerPost } from '../utility/sublevel_handler.js';
+import { parseDice, applyHPChange, activeRuns, updateTrackerPost, sendAllPassedOutMessage } from '../utility/sublevel_handler.js';
 import { basicEmbed } from '../utility/format_embed.js';
 import { getCustomCommandContent } from '../utility/custom_commands.js';
 
@@ -23,7 +23,7 @@ const data = new SlashCommandBuilder()
     .addStringOption(option =>
         option
             .setName('amount')
-            .setDescription('Dice (e.g. 2d6) or a number (e.g. 5)')
+            .setDescription('Dice math (e.g. 2d6+4, 1d8*2) or a number')
             .setRequired(true)
     )
     .addStringOption(option =>
@@ -53,7 +53,7 @@ export default {
                 components: [
                     new ContainerBuilder().setAccentColor(11326574).addTextDisplayComponents(
                         new TextDisplayBuilder().setContent(
-                            '### ❌ Invalid amount!\nUse dice notation (e.g. `2d6`) or a plain number (e.g. `5`).'
+                            '### ❌ Invalid amount!\nUse dice math (e.g. `2d6+4`, `1d8*2`, `(1d6+2)*3`) or a plain number.'
                         )
                     )
                 ],
@@ -62,8 +62,8 @@ export default {
             return;
         }
 
-        // Animated dice roll if more than one die
-        if (parsed.rolls.length > 1) {
+        // Animated dice roll if there are actual dice
+        if (parsed.rolls.length > 0) {
             const diceEmoji = '🎲';
             const numDice = parsed.rolls.length;
 
@@ -121,8 +121,8 @@ export default {
         const verb = type === 'heal' ? 'healed' : 'took';
         const arrow = type === 'heal' ? '⬆️' : '⬇️';
 
-        const rollText = parsed.rolls.length > 1
-            ? `${parsed.rolls.map(r => `**\`${r}\`**`).join(' ')} = **${parsed.total}**`
+        const rollText = parsed.rolls.length > 0
+            ? `${parsed.breakdown} = **${parsed.total}**`
             : `**${parsed.total}**`;
 
         const container = new ContainerBuilder().setAccentColor(11326574);
@@ -155,6 +155,11 @@ export default {
         // Zero HP — character is about to pass out
         if (result.hitZero) {
             await sendZeroHPMessage(interaction.channel, characterName);
+        }
+
+        // All characters at 0 HP — everyone passed out
+        if (result.allPassedOut && run) {
+            await sendAllPassedOutMessage(interaction.channel);
         }
 
         // Revived from 0 HP
@@ -199,7 +204,7 @@ export default {
         const characterName = parts.slice(0, -2).join(' ');
         const parsed = parseDice(amountStr);
         if (!parsed) {
-            await message.reply('Invalid amount! Use dice notation (e.g. `2d6`) or a plain number (e.g. `5`).');
+            await message.reply('Invalid amount! Use dice math (e.g. `2d6+4`, `1d8*2`, `(1d6+2)*3`) or a plain number.');
             return;
         }
         const result = applyHPChange(message.channel.id, characterName, parsed.total, type);
@@ -210,8 +215,8 @@ export default {
         const emoji = type === 'heal' ? '\uD83D\uDC9A' : '\uD83D\uDC94';
         const verb = type === 'heal' ? 'healed' : 'took';
         const arrow = type === 'heal' ? '\u2B06\uFE0F' : '\u2B07\uFE0F';
-        const rollText = parsed.rolls.length > 1
-            ? `${parsed.rolls.map(r => `**\`${r}\`**`).join(' ')} = **${parsed.total}**`
+        const rollText = parsed.rolls.length > 0
+            ? `${parsed.breakdown} = **${parsed.total}**`
             : `**${parsed.total}**`;
         const description = `**${characterName}** ${verb} ${rollText} ${type === 'heal' ? 'healing' : 'damage'}!\n${arrow} **HP:** \`${result.oldHP}\` \u27A1\uFE0F \`${result.newHP}\``;
         const embed = basicEmbed(`${emoji} HP ${type === 'heal' ? 'Healed' : 'Damaged'}!`, description);
@@ -222,6 +227,11 @@ export default {
         // Zero HP — character is about to pass out
         if (result.hitZero) {
             await sendZeroHPMessage(message.channel, characterName);
+        }
+
+        // All characters at 0 HP — everyone passed out
+        if (result.allPassedOut && run) {
+            await sendAllPassedOutMessage(message.channel);
         }
 
         // Revived from 0 HP

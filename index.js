@@ -1,13 +1,12 @@
 import 'discord.js'
-import { Client, Collection, Events, GatewayIntentBits, MessageFlags, REST, Routes } from 'discord.js'
+import { Client, Collection, Events, GatewayIntentBits, MessageFlags, Partials, REST, Routes } from 'discord.js'
 import 'dotenv/config';
 import { dynamicImport } from './dynamic-import.js';
-import { initCache, startPeriodicSync } from './utility/access_data.js';
+import { initCache } from './utility/access_data.js';
 import { restoreActiveRuns } from './utility/sublevel_handler.js';
 
 await initCache();
 restoreActiveRuns();
-startPeriodicSync();
 
 //#region Handle discord commands and events
 const client = new Client({
@@ -15,8 +14,10 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
-  ]
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessageReactions
+  ],
+  partials: [Partials.Message, Partials.Reaction]
 });
 
 //command handler

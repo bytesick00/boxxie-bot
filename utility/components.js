@@ -112,6 +112,13 @@ export function getItemInfoContainer(
         name: "🛒",
       })
       .setCustomId("shop"),
+    new ButtonBuilder()
+      .setStyle(ButtonStyle.Success)
+      .setLabel("Buy")
+      .setEmoji({
+        name: "💰",
+      })
+      .setCustomId("buy_item"),
   );
 
   const infoContainer = new ContainerBuilder().setAccentColor(11326574);

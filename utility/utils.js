@@ -1,5 +1,23 @@
 import { getTableData } from './access_data.js';
 
+// Role IDs that grant admin/mod privileges
+export const ADMIN_ROLE_IDS = [
+  '1459657838115950734',
+  '1469430982296731850',
+];
+
+/**
+ * Checks whether a GuildMember has admin privileges.
+ * Returns true if the member has any of the admin roles or the Administrator permission.
+ * @param {import('discord.js').GuildMember} member
+ * @returns {boolean}
+ */
+export function isAdmin(member) {
+  if (!member) return false;
+  if (member.permissions?.has(1n << 3n)) return true; // Administrator permission
+  return ADMIN_ROLE_IDS.some(id => member.roles?.cache?.has(id));
+}
+
 // Simple method that returns a random emoji from list
 export function getRandomEmoji() {
   const emojiList = ['😭','😄','😌','🤓','😎','😤','🤖','😶‍🌫️','🌏','📸','💿','👋','🌊','✨'];

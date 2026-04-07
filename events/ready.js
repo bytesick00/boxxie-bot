@@ -1,5 +1,5 @@
 import { Events, ActivityType } from 'discord.js';
-import { getTableData } from '../utility/access_data.js';
+import { getTableData, startPeriodicSync } from '../utility/access_data.js';
 import { startBirthdayChecker } from '../utility/birthday_checker.js';
 
 export default {
@@ -17,5 +17,6 @@ export default {
 		}
 
 		startBirthdayChecker(client);
+		startPeriodicSync(client);
 	},
 }

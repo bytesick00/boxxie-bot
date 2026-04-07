@@ -105,7 +105,10 @@ export function parseComponents(text) {
         if (close === -1) { searchFrom = idx + 1; continue; }
 
         const inside = text.slice(open + 1, close);
-        const parts = inside.split('|').map(s => s.trim());
+        // Preserve ||| (random-selection delimiter) before splitting on single |
+        const placeholder = '\x00TRIPLE\x00';
+        const preserved = inside.replace(/\|\|\|/g, placeholder);
+        const parts = preserved.split('|').map(s => s.replace(new RegExp(placeholder, 'g'), '|||').trim());
         if (parts.length >= 3) {
             buttons.push({
                 label: parts[0],
@@ -128,7 +131,10 @@ export function parseComponents(text) {
         if (close === -1) { searchFrom = idx + 1; continue; }
 
         const inside = text.slice(open + 1, close);
-        const parts = inside.split('|').map(s => s.trim()).filter(Boolean);
+        // Preserve ||| (random-selection delimiter) before splitting on single |
+        const ph = '\x00TRIPLE\x00';
+        const preservedDD = inside.replace(/\|\|\|/g, ph);
+        const parts = preservedDD.split('|').map(s => s.replace(new RegExp(ph, 'g'), '|||').trim()).filter(Boolean);
         if (parts.length >= 2) {
             const placeholder = parts[0];
             const options = [];
@@ -199,7 +205,26 @@ function buildDiscordComponents(buttons, dropdowns) {
         const chunk = buttons.slice(i, i + 5);
         const row = new ActionRowBuilder();
         for (const btn of chunk) {
-            const builder = new ButtonBuilder().setLabel(btn.label);
+            let label = btn.label;
+
+            // Append use count for secret buttons
+            const colonIdx = btn.action.indexOf(':');
+            const actionType = colonIdx !== -1 ? btn.action.slice(0, colonIdx).toLowerCase() : btn.action.toLowerCase();
+            if (actionType === 'secret') {
+                label += ' [1 use]';
+            } else {
+                const secretMatch = actionType.match(/^secret\((\d+|\*)\)$/);
+                if (secretMatch) {
+                    if (secretMatch[1] === '*') {
+                        label += ' [∞ uses]';
+                    } else {
+                        const n = parseInt(secretMatch[1]);
+                        label += ` [${n} use${n !== 1 ? 's' : ''}]`;
+                    }
+                }
+            }
+
+            const builder = new ButtonBuilder().setLabel(label);
             const style = STYLE_MAP[btn.style] || ButtonStyle.Secondary;
             builder.setStyle(style);
             if (btn.emoji) builder.setEmoji(btn.emoji);
@@ -392,12 +417,17 @@ async function handleSecretButton(interaction, storeId) {
             const fullyClaimed = isFinite(payload.maxClaims) && payload.claimedBy.length >= payload.maxClaims;
             const infoId = `cc:secretinfo:${storeId}`;
 
+            // Also update the secret button itself to always show who claimed
+            const secretBtnLabel = `📜 (${names})${suffix}`;
+            const safeSecretLabel = secretBtnLabel.length <= 80 ? secretBtnLabel : secretBtnLabel.slice(0, 77) + '...';
+
             const newRows = rebuildSecretWithInfo(
                 interaction.message.components,
                 interaction.customId,
                 fullyClaimed,
                 infoId,
                 label,
+                safeSecretLabel,
             );
             await interaction.message.edit({ components: newRows });
         } else {
@@ -423,7 +453,7 @@ async function handleSecretButton(interaction, storeId) {
  * - Keeps the original secret button red (Danger), disables only when fully claimed
  * - Adds or updates a disabled info button showing who has claimed the secret
  */
-function rebuildSecretWithInfo(existingRows, targetCustomId, fullyClaimed, infoId, infoLabel) {
+function rebuildSecretWithInfo(existingRows, targetCustomId, fullyClaimed, infoId, infoLabel, secretLabel) {
     let infoButtonHandled = false;
 
     const rows = existingRows.map(row => {
@@ -437,6 +467,7 @@ function rebuildSecretWithInfo(existingRows, targetCustomId, fullyClaimed, infoI
                 hasTarget = true;
                 const btn = ButtonBuilder.from(data).setStyle(ButtonStyle.Danger);
                 if (fullyClaimed) btn.setDisabled(true);
+                if (secretLabel) btn.setLabel(secretLabel);
                 newRow.addComponents(btn);
             } else if (data.custom_id === infoId) {
                 // Update existing info button label

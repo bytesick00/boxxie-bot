@@ -4,7 +4,7 @@ import {
   updateRange,
   rowValueR1C1ToA1,
 } from "../sheets.js";
-import { addData, getData, getFieldProperties, getTableData, updateData, addInventoryRow } from "./access_data.js";
+import { addData, getData, getFieldProperties, getTableData, updateData, addInventoryRow, addAwardRow } from "./access_data.js";
 import { randOutOf, resolveOCName } from "./utils.js";
 
 /**
@@ -446,6 +446,74 @@ export class Item extends DBTable {
   }
 }
 
+export class Award extends DBTable {
+  constructor(awardName){
+    super('awards', 'name', awardName)
+    this.name = this.data.name;
+    this.type = this.data.type;
+    this.giftable = this.data.giftable;
+    this.description = this.data.description;
+    this.emoji = this.data.emoji;
+    this.image = this.data.image;
+    this.imageEmbed = this.data.imageEmbed;
+    this.notes = this.data.notes;
+  }
+}
+
+/**
+ * Holds a user's earned awards (parallel to Inventory for items).
+ */
+export class AwardCase {
+  constructor(mun){
+    this.mun = mun;
+  }
+
+  static init(mun){
+    const allRows = (getTableData('awardRows') || []).filter(row => row.id === mun.id);
+    const awardMap = new Map();
+    for(const row of allRows){
+      const amt = parseInt(row.amount);
+      if(isNaN(amt)) continue;
+      if(awardMap.has(row.award)){
+        awardMap.set(row.award, awardMap.get(row.award) + amt);
+      } else {
+        awardMap.set(row.award, amt);
+      }
+    }
+    const awards = [];
+    for(const [award, qty] of awardMap){
+      if(qty > 0) awards.push({award, quantity: qty});
+    }
+    const ac = new AwardCase(mun);
+    ac.awards = awards;
+    return ac;
+  }
+
+  hasAward(awardName){
+    return this.awards.some(a => a.award === awardName);
+  }
+
+  getAwardQuantity(awardName){
+    const found = this.awards.find(a => a.award === awardName);
+    return found ? found.quantity : 0;
+  }
+
+  async giveAward(awardName, quantity = 1){
+    const currentDate = new Date();
+    const newRowData = {
+      id: this.mun.id,
+      mun: this.mun.name,
+      award: awardName,
+      amount: quantity,
+      date: currentDate.toUTCString()
+    };
+    await addAwardRow(newRowData);
+    // refresh local state
+    const refreshed = AwardCase.init(this.mun);
+    this.awards = refreshed.awards;
+  }
+}
+
 /**
  * Description placeholder
  *
@@ -461,6 +529,7 @@ export class Mun extends DBTable {
     this.pronouns = this.data.pronouns;
     this.timezone = this.data.timezone;
     this.scrip = sanitizeScrip(this.data.scrip);
+    this.lifetimeScrip = sanitizeScrip(this.data.lifetimeScrip);
     this.id = this.data.id;
     this.status = this.data.status;
     this.ocs = this.data.ocs;
@@ -482,6 +551,8 @@ export class Mun extends DBTable {
     const currentScrip = this.scrip;
     this.scrip = currentScrip + add
     await super.changeProperty('scrip', this.scrip)
+    this.lifetimeScrip = this.lifetimeScrip + add
+    await super.changeProperty('lifetimeScrip', this.lifetimeScrip)
   }
 
   async removeScrip(removeAmount){

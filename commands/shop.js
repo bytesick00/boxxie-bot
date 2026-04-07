@@ -16,9 +16,11 @@ import {
   getFlavorText,
   getOpenShops,
   Item,
+  Mun,
 } from "../utility/classes.js";
 import {
   getItemInfoContainer,
+  getBuyConfirmContainer,
   buildPaginatedItemSelect,
   buildCategoryFilterRow,
   fuzzyMatchItems,
@@ -268,6 +270,88 @@ async function handleCollector(commandChoice, reply, interaction, ctx) {
           const newComp = displayShop(ctx.currentPage, ctx.shopType, ctx.category);
           const newResponse = await componentResponse.update(newComp);
           await handleCollector("browse", newResponse, interaction, ctx);
+        } else if (response === "buy_item") {
+          const item = new Item(ctx.itemName);
+          const munID = interaction.user.id;
+          const allMuns = getTableData("muns");
+          const munData = allMuns.find((row) => row.id === munID);
+          const mun = new Mun(munData.name);
+          const confirmComp = getBuyConfirmContainer(
+            item.name,
+            1,
+            item.buyPrice,
+            mun.scrip,
+            item.image,
+          );
+          const confirmResponse = await componentResponse.update({
+            components: confirmComp,
+            flags: MessageFlags.IsComponentsV2,
+          });
+          await handleCollector("buy_confirm", confirmResponse, interaction, ctx);
+        }
+        break;
+
+      case "buy_confirm":
+        if (response === "confirm") {
+          const item = new Item(ctx.itemName);
+          const munID = interaction.user.id;
+          const allMuns = getTableData("muns");
+          const munData = allMuns.find((row) => row.id === munID);
+          const mun = new Mun(munData.name);
+          try {
+            await (await mun.inventory).buyItem(ctx.itemName, 1);
+            const purchasedComp = [
+              new ContainerBuilder()
+                .setAccentColor(11326574)
+                .addTextDisplayComponents(
+                  new TextDisplayBuilder().setContent(
+                    `## Purchased (1x) ${item.name}! 🎉`,
+                  ),
+                  new TextDisplayBuilder().setContent(
+                    `-# 💰 NEW BALANCE: ${mun.scrip}`,
+                  ),
+                ),
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setStyle(ButtonStyle.Primary)
+                  .setLabel("Back to Shop")
+                  .setEmoji({ name: "🛒" })
+                  .setCustomId("shop"),
+              ),
+            ];
+            const newResponse = await componentResponse.update({
+              components: purchasedComp,
+              flags: MessageFlags.IsComponentsV2,
+            });
+            await handleCollector("info", newResponse, interaction, ctx);
+          } catch (error) {
+            const errMsg = error.message === "Not enough scrip!"
+              ? `**\`\`\`ERROR: Not enough scrip! Balance: ${mun.scrip}\`\`\`**`
+              : "### Sorry! I ran into an error :(";
+            const errComp = [
+              new ContainerBuilder()
+                .setAccentColor(11326574)
+                .addTextDisplayComponents(
+                  new TextDisplayBuilder().setContent(errMsg),
+                ),
+              new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                  .setStyle(ButtonStyle.Primary)
+                  .setLabel("Back to Shop")
+                  .setEmoji({ name: "🛒" })
+                  .setCustomId("shop"),
+              ),
+            ];
+            const newResponse = await componentResponse.update({
+              components: errComp,
+              flags: MessageFlags.IsComponentsV2,
+            });
+            await handleCollector("info", newResponse, interaction, ctx);
+          }
+        } else if (response === "cancel") {
+          const newComp = viewItem(ctx.itemName);
+          const newResponse = await componentResponse.update(newComp);
+          await handleCollector("info", newResponse, interaction, ctx);
         }
         break;
 

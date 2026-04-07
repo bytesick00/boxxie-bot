@@ -2,11 +2,12 @@ import { JSONFile, JSONFilePreset } from "lowdb/node";
 import { SheetTable } from "./classes.js";
 import { existsSync } from "node:fs";
 import { Low } from "lowdb";
+import { EmbedBuilder } from "discord.js";
 
 export const SHEET_RANGES = [
         {
             sheet: "Mun Info",
-            range: "A:G"
+            range: "A:H"
         },
         {
             sheet: "OC Info",
@@ -46,6 +47,14 @@ export const SHEET_RANGES = [
         {
             sheet: "Custom Commands",
             range: "A:I"
+        },
+        {
+            sheet: "All Awards",
+            range: "A:H"
+        },
+        {
+            sheet: "Award Rows",
+            range: "A:E"
         }
 ]
 const shopKeys = [
@@ -118,6 +127,10 @@ const munKeys = [
     {
         db: "scrip",
         sheet: "Scrip"
+    },
+    {
+        db: "lifetimeScrip",
+        sheet: "Lifetime Scrip"
     },
     {
         db: "ocs",
@@ -386,6 +399,62 @@ const prefixCommandKeys = [
         sheet: "Notes"
     }
 ]
+const awardKeys = [
+    {
+        db: "name",
+        sheet: "Name"
+    },
+    {
+        db: "type",
+        sheet: "Award Type"
+    },
+    {
+        db: "giftable",
+        sheet: "Giftable"
+    },
+    {
+        db: "description",
+        sheet: "Description"
+    },
+    {
+        db: "emoji",
+        sheet: "Emoji ID"
+    },
+    {
+        db: "image",
+        sheet: "Image Link"
+    },
+    {
+        db: "imageEmbed",
+        sheet: "Image"
+    },
+    {
+        db: "notes",
+        sheet: "Notes"
+    }
+]
+const awardRowKeys = [
+    {
+        db: "id",
+        sheet: "User ID"
+    },
+    {
+        db: "mun",
+        sheet: "Mun Name"
+    },
+    {
+        db: "award",
+        sheet: "Award"
+    },
+    {
+        db: "amount",
+        sheet: "Amount"
+    },
+    {
+        db: "date",
+        sheet: "Transaction Date"
+    }
+]
 const allKeys = {
     'All Items': {keys: shopKeys, field: "shop"},
     'Mun Info': {keys: munKeys, field: "muns"},
@@ -397,7 +466,9 @@ const allKeys = {
     'Flavor Text': {keys: flavorTextKeys, field: "flavorText"},
     'Get Commands': {keys: customKeys, field: "customCommands"},
     'Shops And Gacha': {keys: shopsAndGachaKeys, field: "shopsAndGacha"},
-    'Custom Commands': {keys: prefixCommandKeys, field: "prefixCommands"}
+    'Custom Commands': {keys: prefixCommandKeys, field: "prefixCommands"},
+    'All Awards': {keys: awardKeys, field: "awards"},
+    'Award Rows': {keys: awardRowKeys, field: "awardRows"}
 }
 
 const dbDefault = {
@@ -412,7 +483,9 @@ const dbDefault = {
     mechanics: [],
     sublevelRuns: [],
     shopsAndGacha: [],
-    prefixCommands: []
+    prefixCommands: [],
+    awards: [],
+    awardRows: []
 }
 
 const cachePath = './data/cached-data.json';
@@ -710,6 +783,57 @@ export async function addInventoryRow(newRowData) {
 }
 
 /**
+ * Adds an award row to the sheet (append-only),
+ * then consolidates the in-memory cache.
+ */
+export async function addAwardRow(newRowData) {
+    // Append to sheet
+    const sheetName = getSheetName('awardRows');
+    const sheetTable = await SheetTable.init('awardRows', sheetName, SHEET_RANGES.find(table => table.sheet === sheetName).range);
+    sheetTable.appendRow([newRowData.id, newRowData.mun, newRowData.award, newRowData.amount, newRowData.date]);
+
+    // Add to cache then consolidate
+    db.data.awardRows.push(newRowData);
+    consolidateAwardCache();
+    await db.write();
+}
+
+/**
+ * Consolidates all award cache rows: groups by (user ID + award),
+ * sums amounts, and removes entries that are 0 or below.
+ */
+function consolidateAwardCache() {
+    const awardRows = db.data.awardRows;
+    if (!awardRows) return;
+    const consolidated = new Map();
+
+    for (const row of awardRows) {
+        const key = `${row.id}|${row.award}`;
+        const munName = row.mun || row.name;
+        const amt = parseInt(row.amount);
+        if (isNaN(amt)) continue;
+
+        if (consolidated.has(key)) {
+            const existing = consolidated.get(key);
+            existing.amount = String(parseInt(existing.amount) + amt);
+            existing.date = row.date;
+        } else {
+            consolidated.set(key, {
+                id: row.id,
+                mun: munName,
+                award: row.award,
+                amount: String(amt),
+                date: row.date
+            });
+        }
+    }
+
+    db.data.awardRows = [...consolidated.values()].filter(
+        row => parseInt(row.amount) > 0
+    );
+}
+
+/**
  * Consolidates all inventory cache rows: groups by (user ID + item),
  * sums amounts, and removes entries that are 0 or below.
  */
@@ -776,8 +900,8 @@ let nextSyncAt = null;
  * 6. **Local-only data** (sublevelRuns, sublevelElevator, activeRuns):
  *    Never overwritten - preserved across syncs.
  */
-export async function periodicSync() {
-    console.log(`[Sync] Starting periodic sync at ${new Date().toISOString()}...`);
+export async function periodicSync(client) {
+    console.log(`[Sync] Starting periodic sync at ${new Date().toISOString()}...`)
 
     try {
         if (!db) await setUpAdapter();
@@ -855,8 +979,9 @@ export async function periodicSync() {
             }
         }
 
-        // ── 7. Consolidate inventory cache ──
+        // ── 7. Consolidate inventory and award caches ──
         consolidateInventoryCache();
+        consolidateAwardCache();
 
         // Save merged cache to disk
         await db.write();
@@ -910,6 +1035,32 @@ export async function periodicSync() {
         }
 
         console.log(`[Sync] Complete. Pushed ${limitedToPush.length} limited counters, ${itemsToPush.length} item amounts to sheet.`);
+
+        // ── 11. Send daily refresh embed to cubicles channel ──
+        if (client) {
+            try {
+                const CUBICLES_CHANNEL_ID = '1463329881705414743';
+                const channel = await client.channels.fetch(CUBICLES_CHANNEL_ID).catch(() => null);
+                if (channel) {
+                    const commands = db.data.prefixCommands || [];
+                    const titleCmd = commands.find(cmd => cmd.command?.trim().toLowerCase() === 'daily_title' && cmd.text);
+                    const descCmd = commands.find(cmd => cmd.command?.trim().toLowerCase() === 'daily_refresh' && cmd.text);
+
+                    const embed = new EmbedBuilder()
+                        .setTitle(titleCmd?.text?.trim() || 'Daily Refreshed')
+                        .setDescription(descCmd?.text?.trim() || 'The daily reset has occurred!')
+                        .setColor(0xacd46e);
+
+                    await channel.send({ embeds: [embed] });
+                    console.log('[Sync] Sent daily refresh embed to cubicles channel.');
+                } else {
+                    console.error(`[Sync] Could not find cubicles channel ${CUBICLES_CHANNEL_ID}`);
+                }
+            } catch (embedErr) {
+                console.error('[Sync] Failed to send daily refresh embed:', embedErr);
+            }
+        }
+
     } catch (e) {
         console.error('[Sync] Periodic sync failed:', e);
     }
@@ -918,14 +1069,14 @@ export async function periodicSync() {
 /**
  * Start the 24-hour sync timer. Call once at startup after initCache().
  */
-export function startPeriodicSync() {
+export function startPeriodicSync(client) {
     if (syncTimer) {
         clearInterval(syncTimer);
     }
     nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
     syncTimer = setInterval(() => {
         nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
-        periodicSync().catch(e => console.error('[Sync] Unhandled error:', e));
+        periodicSync(client).catch(e => console.error('[Sync] Unhandled error:', e));
     }, SYNC_INTERVAL_MS);
 
     console.log(`[Sync] Periodic sync scheduled every ${SYNC_INTERVAL_MS / 1000 / 60 / 60} hours.`);

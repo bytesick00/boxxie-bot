@@ -198,7 +198,7 @@ export default {
         });
 
         collector.on('end', async () => {
-            await interaction.editReply({ components: [] }).catch(() => {});
+            await interaction.deleteReply().catch(() => {});
         });
     },
     async executePrefix(message, args) {
@@ -229,7 +229,7 @@ export default {
             await i.update(buildReply(entries, field, pageNum));
         });
         collector.on('end', async () => {
-            await reply.edit({ components: [] }).catch(() => {});
+            await reply.delete().catch(() => {});
         });
     },
 };

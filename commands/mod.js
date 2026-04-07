@@ -1,7 +1,8 @@
-import { CommandInteraction, MessageFlags, PermissionFlagsBits, SlashCommandBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
+import { CommandInteraction, MessageFlags, SlashCommandBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
 import{ fork } from 'node:child_process'
 import { cacheAllData } from '../utility/access_data.js';
 import { TextDisplayBuilder, ThumbnailBuilder, SectionBuilder, ContainerBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, SeparatorBuilder, SeparatorSpacingSize } from 'discord.js';
+import { isAdmin } from '../utility/utils.js';
 
 const components = [
         new ContainerBuilder()
@@ -97,6 +98,11 @@ const testComp = new SlashCommandSubcommandBuilder()
  */
 async function mainFunction(interaction) {
 
+    if (!isAdmin(interaction.member)) {
+        await interaction.reply({ content: 'You need administrator permissions to use this command!', flags: MessageFlags.Ephemeral });
+        return;
+    }
+
     const choice = interaction.options.getSubcommand()
 
     switch (choice) {
@@ -170,7 +176,6 @@ const commandBuilder =
     new SlashCommandBuilder()
         .setName('mod')
         .setDescription('Mod-only commands')
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(registerSubcommand)
         .addSubcommand(testComp)
 
@@ -181,7 +186,7 @@ export default{
         await mainFunction(interaction);
     },
     async executePrefix(message, args) {
-        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        if (!isAdmin(message.member)) {
             await message.reply('You need administrator permissions to use this command!');
             return;
         }
