@@ -95,7 +95,7 @@ export async function handlePrefixCommand(message) {
                 editOptions.components = editInData.components;
             }
             await sent.edit(editOptions);
-            return true;
+            return sent;
         }
 
         // Extract component tags before building the embed
@@ -134,7 +134,7 @@ export async function handlePrefixCommand(message) {
             setTimeout(() => sent.delete().catch(() => {}), meta.deleteIn);
         }
 
-        return true;
+        return sent;
     }
 
     // Handle item rewards
@@ -160,8 +160,8 @@ export async function handlePrefixCommand(message) {
     }
     if (components.length > 0) sendOptions.components = components;
 
-    await message.reply(sendOptions);
-    return true;
+    const sent = await message.reply(sendOptions);
+    return sent;
 }
 
 /**

@@ -40,15 +40,25 @@ export default {
             }
             run.floors++;
             await persistActiveRuns();
+            let sentMsg;
             try {
-                await handlePrefixCommand(message);
+                sentMsg = await handlePrefixCommand(message);
             } catch (e) {
                 console.error('Error executing floor command:', e);
             }
-            // Tag every participant in the run
+            // Tag every participant in the run — edit into the same post
             const uniqueUserIds = [...new Set([...run.characters.values()].map(c => c.userId).filter(Boolean))];
             if (uniqueUserIds.length > 0) {
-                await message.channel.send(uniqueUserIds.map(id => `<@${id}>`).join(' '));
+                const mentions = uniqueUserIds.map(id => `<@${id}>`).join(' ');
+                if (sentMsg) {
+                    try {
+                        await sentMsg.edit({ content: (sentMsg.content || '') + '\n' + mentions });
+                    } catch {
+                        await message.channel.send(mentions);
+                    }
+                } else {
+                    await message.channel.send(mentions);
+                }
             }
             return;
         }
