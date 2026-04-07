@@ -361,21 +361,12 @@ async function mainFunction(interaction) {
       await handleItemCollector(interaction, reply, item, inventory);
     }
   } else {
-    // award — only show details if the user has earned it
     const award = resolved.entry;
     let owned = false;
     if (munData) {
       const mun = new Mun(munData.name);
       const awardCase = AwardCase.init(mun);
       owned = awardCase.hasAward(award.name);
-    }
-
-    if (!owned) {
-      await interaction.editReply({
-        components: simpleComponent("Item or award not found! ❌"),
-        flags: MessageFlags.IsComponentsV2,
-      });
-      return;
     }
 
     const components = buildAwardInfoComponents(award, owned);
@@ -397,19 +388,7 @@ export default {
       .map((row) => row.name)
       .filter(Boolean);
 
-    // Only include awards the user has earned
-    const munData = getTableData("muns").find(
-      (row) => row.id === interaction.user.id,
-    );
-    let earnedAwardNames = [];
-    if (munData) {
-      const mun = new Mun(munData.name);
-      const awardCase = AwardCase.init(mun);
-      earnedAwardNames = awardCase.awards.map((a) => a.award);
-    }
-
-    const combined = [...allItems, ...earnedAwardNames];
-    const filtered = fuzzyMatchItems(combined, focusedValue);
+    const filtered = fuzzyMatchItems(allItems, focusedValue);
     await interaction.respond(
       filtered.map((name) => ({ name, value: name })),
     );
@@ -461,11 +440,6 @@ export default {
         const mun = new Mun(munData.name);
         const awardCase = AwardCase.init(mun);
         owned = awardCase.hasAward(award.name);
-      }
-
-      if (!owned) {
-        await message.reply("Item or award not found! ❌");
-        return;
       }
 
       const description =
