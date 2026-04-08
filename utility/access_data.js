@@ -7,7 +7,7 @@ import { EmbedBuilder } from "discord.js";
 export const SHEET_RANGES = [
         {
             sheet: "Mun Info",
-            range: "A:H"
+            range: "A:I"
         },
         {
             sheet: "OC Info",
@@ -54,6 +54,10 @@ export const SHEET_RANGES = [
         },
         {
             sheet: "Award Rows",
+            range: "A:E"
+        },
+        {
+            sheet: "Teams",
             range: "A:E"
         }
 ]
@@ -111,6 +115,10 @@ const munKeys = [
     {
         db: "pronouns",
         sheet: "Mun Pronouns"
+    },
+    {
+        db: "team",
+        sheet: "Team"
     },
     {
         db: "timezone",
@@ -455,6 +463,28 @@ const awardRowKeys = [
         sheet: "Transaction Date"
     }
 ]
+const teamKeys = [
+    {
+        db: "name",
+        sheet: "Thing"
+    },
+    {
+        db: "type",
+        sheet: "Type"
+    },
+    {
+        db: "points",
+        sheet: "Points"
+    },
+    {
+        db: "wins",
+        sheet: "Wins"
+    },
+    {
+        db: "lastWinner",
+        sheet: "Last Winner"
+    }
+]
 const allKeys = {
     'All Items': {keys: shopKeys, field: "shop"},
     'Mun Info': {keys: munKeys, field: "muns"},
@@ -468,7 +498,8 @@ const allKeys = {
     'Shops And Gacha': {keys: shopsAndGachaKeys, field: "shopsAndGacha"},
     'Custom Commands': {keys: prefixCommandKeys, field: "prefixCommands"},
     'All Awards': {keys: awardKeys, field: "awards"},
-    'Award Rows': {keys: awardRowKeys, field: "awardRows"}
+    'Award Rows': {keys: awardRowKeys, field: "awardRows"},
+    'Teams': {keys: teamKeys, field: "teams"}
 }
 
 const dbDefault = {
@@ -485,7 +516,8 @@ const dbDefault = {
     shopsAndGacha: [],
     prefixCommands: [],
     awards: [],
-    awardRows: []
+    awardRows: [],
+    teams: []
 }
 
 const cachePath = './data/cached-data.json';

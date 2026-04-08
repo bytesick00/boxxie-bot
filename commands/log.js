@@ -161,6 +161,7 @@ async function mainFunction(replyTarget, submissionStr, targetUser) {
 
     const thisMun = new Mun(munData.name);
     await thisMun.addScrip(totalPayout);
+    await thisMun.addTeamPoints(totalPayout);
 
     const breakdown = formatBreakdown(entries, totalPayout);
     const message =

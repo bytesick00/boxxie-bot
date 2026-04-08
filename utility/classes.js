@@ -527,6 +527,7 @@ export class Mun extends DBTable {
     super('muns', 'name', name)
     this.name = this.data.name;
     this.pronouns = this.data.pronouns;
+    this.team = this.data.team;
     this.timezone = this.data.timezone;
     this.scrip = sanitizeScrip(this.data.scrip);
     this.lifetimeScrip = sanitizeScrip(this.data.lifetimeScrip);
@@ -567,6 +568,33 @@ export class Mun extends DBTable {
     await super.changeProperty('scrip', this.scrip)
   }
 
+  /**
+   * Add points to this mun's team. No-op if the mun has no team.
+   * @param {number} points
+   */
+  async addTeamPoints(points){
+    if(!this.team) return;
+    const team = new Team(this.team);
+    await team.addPoints(points);
+  }
+
+}
+
+export class Team extends DBTable {
+  constructor(name){
+    super('teams', 'name', name)
+    this.name = this.data.name;
+    this.type = this.data.type;
+    this.points = sanitizeScrip(this.data.points) || 0;
+    this.wins = parseInt(this.data.wins) || 0;
+    this.lastWinner = this.data.lastWinner;
+  }
+
+  async addPoints(amount){
+    const add = sanitizeScrip(amount);
+    this.points = this.points + add;
+    await super.changeProperty('points', this.points);
+  }
 }
 
 export class Inventory{
