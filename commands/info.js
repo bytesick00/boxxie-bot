@@ -135,6 +135,24 @@ function buildItemInfoComponents(item, ownedQty) {
   return components;
 }
 
+// ── Award holder count ──
+
+function countAwardHolders(awardName) {
+  const allRows = getTableData("awardRows") || [];
+  const totals = new Map();
+  for (const row of allRows) {
+    if (row.award !== awardName) continue;
+    const amt = parseInt(row.amount);
+    if (isNaN(amt)) continue;
+    totals.set(row.id, (totals.get(row.id) || 0) + amt);
+  }
+  let count = 0;
+  for (const qty of totals.values()) {
+    if (qty > 0) count++;
+  }
+  return count;
+}
+
 // ── Award display ──
 
 function buildAwardInfoComponents(award, owned) {
@@ -163,16 +181,25 @@ function buildAwardInfoComponents(award, owned) {
     container.addTextDisplayComponents(...infoTexts);
   }
 
+  const holderCount = countAwardHolders(award.name);
+
+  container.addSeparatorComponents(
+    new SeparatorBuilder()
+      .setSpacing(SeparatorSpacingSize.Small)
+      .setDivider(true),
+  );
+
   if (owned) {
-    container.addSeparatorComponents(
-      new SeparatorBuilder()
-        .setSpacing(SeparatorSpacingSize.Small)
-        .setDivider(true),
-    );
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent("🏆 **You have earned this award!**"),
     );
   }
+
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `👥 **${holderCount}** ${holderCount === 1 ? "person has" : "people have"} this award`,
+    ),
+  );
 
   return [container];
 }
@@ -442,10 +469,12 @@ export default {
         owned = awardCase.hasAward(award.name);
       }
 
+      const holderCount = countAwardHolders(award.name);
       const description =
         `**Category:** ${award.type}` +
         (award.description ? `\n\n> ${award.description}` : "") +
-        (owned ? "\n\n🏆 **You have earned this award!**" : "");
+        (owned ? "\n\n🏆 **You have earned this award!**" : "") +
+        `\n\n👥 **${holderCount}** ${holderCount === 1 ? "person has" : "people have"} this award`;
 
       const embed = basicEmbed(
         `${award.emoji || "🏆"} ${award.name}`,

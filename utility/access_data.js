@@ -869,9 +869,19 @@ function consolidateInventoryCache() {
 
 // ---- 24-Hour Bidirectional Sync ----
 
-const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 let syncTimer = null;
 let nextSyncAt = null;
+
+/** Returns ms until the next midnight in America/New_York (EST/EDT). */
+function msUntilMidnightEST() {
+    const now = new Date();
+    // Build a string for the current date in ET, then derive next midnight
+    const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const nextMidnight = new Date(estNow);
+    nextMidnight.setHours(24, 0, 0, 0); // midnight tomorrow in ET
+    // Convert back: difference in ms is the same regardless of locale
+    return nextMidnight.getTime() - estNow.getTime();
+}
 
 /**
  * Bidirectional sync between Google Sheets and local JSON cache.
@@ -1067,19 +1077,30 @@ export async function periodicSync(client) {
 }
 
 /**
- * Start the 24-hour sync timer. Call once at startup after initCache().
+ * Start the daily sync timer. Fires at midnight EST every day.
+ * Call once at startup after initCache().
  */
 export function startPeriodicSync(client) {
     if (syncTimer) {
-        clearInterval(syncTimer);
+        clearTimeout(syncTimer);
     }
-    nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
-    syncTimer = setInterval(() => {
-        nextSyncAt = Date.now() + SYNC_INTERVAL_MS;
-        periodicSync(client).catch(e => console.error('[Sync] Unhandled error:', e));
-    }, SYNC_INTERVAL_MS);
 
-    console.log(`[Sync] Periodic sync scheduled every ${SYNC_INTERVAL_MS / 1000 / 60 / 60} hours.`);
+    function scheduleNext() {
+        const ms = msUntilMidnightEST();
+        nextSyncAt = Date.now() + ms;
+        syncTimer = setTimeout(async () => {
+            try {
+                await periodicSync(client);
+            } catch (e) {
+                console.error('[Sync] Unhandled error:', e);
+            }
+            scheduleNext(); // schedule the next midnight
+        }, ms);
+        const hours = (ms / 1000 / 60 / 60).toFixed(2);
+        console.log(`[Sync] Next daily sync in ${hours} hours (midnight EST).`);
+    }
+
+    scheduleNext();
 }
 
 /**
@@ -1095,7 +1116,7 @@ export function getTimeUntilNextSync() {
  */
 export function stopPeriodicSync() {
     if (syncTimer) {
-        clearInterval(syncTimer);
+        clearTimeout(syncTimer);
         syncTimer = null;
         console.log('[Sync] Periodic sync stopped.');
     }
