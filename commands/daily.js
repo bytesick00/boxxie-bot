@@ -43,12 +43,16 @@ const commandBuilder = new SlashCommandBuilder()
 
 /**
  * Picks a random OC from the full roster, returns a Character object.
+ * Excludes OCs belonging to the given mun so you can't target yourself.
  */
-function getRandomOC() {
+function getRandomOC(excludeMun) {
   const allOCs = getTableData("ocs");
   if (!allOCs || allOCs.length === 0) return null;
-  const idx = Math.floor(Math.random() * allOCs.length);
-  return new Character(allOCs[idx].name);
+  let candidates = allOCs.filter((o) => o.name !== "Test Character");
+  if (excludeMun) candidates = candidates.filter((o) => o.mun !== excludeMun);
+  if (candidates.length === 0) return null;
+  const idx = Math.floor(Math.random() * candidates.length);
+  return new Character(candidates[idx].name);
 }
 
 /**
@@ -293,7 +297,7 @@ async function mainFunction(dailyType, userId, reply, ephemeralReply) {
       break;
     case "steal":
       result = rollSteal();
-      targetOC = getRandomOC();
+      targetOC = getRandomOC(munData.name);
       targetMunId = targetOC ? getMunIdForCharacter(targetOC) : null;
       break;
     case "scavenge":
@@ -304,7 +308,7 @@ async function mainFunction(dailyType, userId, reply, ephemeralReply) {
       break;
     case "sabotage":
       result = rollSabotage();
-      targetOC = getRandomOC();
+      targetOC = getRandomOC(munData.name);
       targetMunId = targetOC ? getMunIdForCharacter(targetOC) : null;
       break;
     case "overtime":
@@ -312,7 +316,7 @@ async function mainFunction(dailyType, userId, reply, ephemeralReply) {
       break;
     case "cooperate":
       result = rollCooperate();
-      targetOC = getRandomOC();
+      targetOC = getRandomOC(munData.name);
       targetMunId = targetOC ? getMunIdForCharacter(targetOC) : null;
       break;
     default:

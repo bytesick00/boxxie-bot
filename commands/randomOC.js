@@ -28,7 +28,7 @@ export default{
         const choice = interaction.options.getString('pick');
         
         let characterNames = getTableData('ocs')
-        characterNames = characterNames.map(row=>row.name);
+        characterNames = characterNames.filter(row => row.name !== 'Test Character').map(row=>row.name);
         const ocNamesLength = characterNames.length; 
         const randomNumber = Math.floor(Math.random() * ocNamesLength);
         const character = new Character(characterNames[randomNumber]);
@@ -58,7 +58,7 @@ export default{
     },
     async executePrefix(message, args) {
         const choice = args?.toLowerCase()?.trim();
-        let characterNames = getTableData('ocs').map(row => row.name);
+        let characterNames = getTableData('ocs').filter(row => row.name !== 'Test Character').map(row => row.name);
         const randomNumber = Math.floor(Math.random() * characterNames.length);
         const character = new Character(characterNames[randomNumber]);
         let embedMessage;
